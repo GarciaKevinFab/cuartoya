@@ -17,30 +17,158 @@ PRICES = {
 
 
 async def create_culqi_charge(token: str, amount_cents: int, email: str, description: str) -> dict:
-    """Create charge via Culqi API or simulate in dev."""
+    """Create charge via Culqi API v2 or simulate in dev."""
     if settings.CULQI_SECRET_KEY and not settings.CULQI_SECRET_KEY.startswith("sk_test_REEMPLAZAR"):
         import httpx
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.culqi.com/v2/charges",
-                headers={
-                    "Authorization": f"Bearer {settings.CULQI_SECRET_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "amount": amount_cents,
-                    "currency_code": "PEN",
-                    "email": email,
-                    "source_id": token,
-                    "description": description,
-                },
-            )
-            return response.json()
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://api.culqi.com/v2/charges",
+                    headers={
+                        "Authorization": f"Bearer {settings.CULQI_SECRET_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "amount": amount_cents,
+                        "currency_code": "PEN",
+                        "email": email,
+                        "source_id": token,
+                        "description": description,
+                        "metadata": {
+                            "app": "CuartoYa",
+                            "email": email,
+                        },
+                    },
+                )
+
+                data = response.json()
+
+                if response.status_code in (200, 201):
+                    return data
+                else:
+                    error_msg = data.get("user_message", data.get("merchant_message", "Error en el pago"))
+                    return {"error": True, "message": error_msg, "status_code": response.status_code}
+
+        except httpx.TimeoutException:
+            return {"error": True, "message": "Tiempo de espera agotado con Culqi"}
+        except httpx.RequestError as e:
+            return {"error": True, "message": f"Error de conexion con Culqi: {str(e)}"}
 
     # Dev mode: simulate success
     print(f"[CULQI DEV] Charge simulated: {amount_cents} centimos - {description}")
-    return {"id": f"chr_test_{uuid.uuid4().hex[:12]}", "outcome": {"type": "venta_exitosa"}}
+    return {
+        "id": f"chr_test_{uuid.uuid4().hex[:12]}",
+        "amount": amount_cents,
+        "currency_code": "PEN",
+        "email": email,
+        "description": description,
+        "outcome": {"type": "venta_exitosa"},
+        "source": {"type": "token"},
+    }
+
+
+async def create_culqi_refund(charge_id: str, amount_cents: int, reason: str = "solicitud del usuario") -> dict:
+    """Create a refund via Culqi API v2 or simulate in dev."""
+    if settings.CULQI_SECRET_KEY and not settings.CULQI_SECRET_KEY.startswith("sk_test_REEMPLAZAR"):
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://api.culqi.com/v2/refunds",
+                    headers={
+                        "Authorization": f"Bearer {settings.CULQI_SECRET_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "amount": amount_cents,
+                        "charge_id": charge_id,
+                        "reason": reason,
+                    },
+                )
+
+                data = response.json()
+
+                if response.status_code in (200, 201):
+                    return data
+                else:
+                    error_msg = data.get("user_message", data.get("merchant_message", "Error en el reembolso"))
+                    return {"error": True, "message": error_msg}
+
+        except httpx.TimeoutException:
+            return {"error": True, "message": "Tiempo de espera agotado con Culqi"}
+        except httpx.RequestError as e:
+            return {"error": True, "message": f"Error de conexion con Culqi: {str(e)}"}
+
+    # Dev mode: simulate refund
+    print(f"[CULQI DEV] Refund simulated: {amount_cents} centimos for charge {charge_id}")
+    return {
+        "id": f"ref_test_{uuid.uuid4().hex[:12]}",
+        "charge_id": charge_id,
+        "amount": amount_cents,
+        "reason": reason,
+    }
+
+
+async def process_culqi_webhook(event_type: str, data: dict, db: AsyncSession) -> dict:
+    """Process Culqi webhook notifications."""
+    if event_type == "charge.creation.succeeded":
+        charge_id = data.get("id", "")
+        metadata = data.get("metadata", {})
+        print(f"[CULQI WEBHOOK] Pago exitoso: {charge_id}")
+        return {"processed": True, "event": event_type, "charge_id": charge_id}
+
+    elif event_type == "charge.creation.failed":
+        charge_id = data.get("id", "")
+        print(f"[CULQI WEBHOOK] Pago fallido: {charge_id}")
+        # Deactivate subscription if associated
+        result = await db.execute(
+            select(Subscription).where(Subscription.culqi_charge_id == charge_id)
+        )
+        sub = result.scalar_one_or_none()
+        if sub:
+            sub.is_active = False
+            result2 = await db.execute(select(User).where(User.id == sub.user_id))
+            user = result2.scalar_one_or_none()
+            if user:
+                user.is_premium = False
+                user.premium_until = None
+            await db.commit()
+        return {"processed": True, "event": event_type, "charge_id": charge_id}
+
+    elif event_type == "refund.creation.succeeded":
+        refund_id = data.get("id", "")
+        charge_id = data.get("charge_id", "")
+        print(f"[CULQI WEBHOOK] Reembolso exitoso: {refund_id} para cargo {charge_id}")
+        return {"processed": True, "event": event_type, "refund_id": refund_id}
+
+    else:
+        print(f"[CULQI WEBHOOK] Evento no manejado: {event_type}")
+        return {"processed": False, "event": event_type, "message": "Evento no manejado"}
+
+
+def generate_receipt(subscription: Subscription, user_email: str) -> dict:
+    """Generate a receipt/invoice for a subscription payment."""
+    return {
+        "receipt_id": f"REC-{subscription.id[:8].upper()}",
+        "date": subscription.created_at.strftime("%d/%m/%Y %H:%M"),
+        "customer_email": user_email,
+        "plan": subscription.plan,
+        "amount": float(subscription.amount),
+        "currency": "PEN",
+        "period": {
+            "start": subscription.starts_at.strftime("%d/%m/%Y"),
+            "end": subscription.ends_at.strftime("%d/%m/%Y"),
+        },
+        "charge_id": subscription.culqi_charge_id,
+        "company": {
+            "name": "CuartoYa",
+            "ruc": "20XXXXXXXXX",
+            "address": "Huancayo, Junin, Peru",
+        },
+        "status": "pagado",
+    }
 
 
 async def activate_subscription(db: AsyncSession, user_id: str, plan: str, charge_id: str):

@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSprings, animated, to as interpolate } from '@react-spring/web';
 import { useFeedStore } from '../store/feedStore';
 import { useAuthStore } from '../store/authStore';
+import { favoritesAPI } from '../services/api';
+import ReportModal from '../components/common/ReportModal';
 import toast from 'react-hot-toast';
 import {
   X,
@@ -20,13 +22,24 @@ import {
   RefreshCw,
   Crown,
   BedDouble,
+  Bookmark,
+  Flag,
+  MoreVertical,
+  ChevronDown,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const DISTRICTS = [
-  'Huancayo', 'El Tambo', 'Chilca', 'Pilcomayo', 'San Agustin de Cajas',
-  'Hualhuas', 'San Jeronimo de Tunan', 'Sapallanga', 'Viques', 'Huancan',
-];
+const CITY_DISTRICTS = {
+  'Huancayo': ['El Tambo', 'Chilca', 'Cercado', 'Huancan', 'Pilcomayo'],
+  'Tarma': ['Tarma Centro', 'Acobamba', 'Palca'],
+  'La Oroya': ['La Oroya Centro', 'Santa Rosa de Sacco', 'Yauli'],
+  'Junin': ['Junin Centro', 'Ondores', 'Carhuamayo'],
+  'Jauja': ['Jauja Centro', 'Sausa', 'Yauyos'],
+  'Concepcion': ['Concepcion Centro', 'Aco', 'Orcotuna'],
+  'Chupaca': ['Chupaca Centro', 'Ahuac', 'Huachac'],
+};
+
+const CITIES = Object.keys(CITY_DISTRICTS);
 
 const ROOM_TYPES = [
   { value: 'single', label: 'Individual' },
@@ -58,13 +71,32 @@ export default function DiscoverPage() {
   } = useFeedStore();
   const { user } = useAuthStore();
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedCity, setSelectedCity] = useState(
+    localStorage.getItem('cuartoya_city') || 'Huancayo'
+  );
   const [localFilters, setLocalFilters] = useState(filters);
   const [photoIndices, setPhotoIndices] = useState({});
   const [gone] = useState(() => new Set());
+  const [savingId, setSavingId] = useState(null);
+  const [savedIds, setSavedIds] = useState(new Set());
+  const [reportModal, setReportModal] = useState({ open: false, id: null });
+  const [openCardMenu, setOpenCardMenu] = useState(null);
 
   useEffect(() => {
     fetchFeed();
   }, [fetchFeed]);
+
+  // Listen for city changes from Navbar
+  useEffect(() => {
+    const handler = (e) => {
+      setSelectedCity(e.detail);
+      applyFilters({ city: e.detail, district: '' });
+    };
+    window.addEventListener('cityChanged', handler);
+    return () => window.removeEventListener('cityChanged', handler);
+  }, [applyFilters]);
+
+  const districts = CITY_DISTRICTS[selectedCity] || [];
 
   const visibleCards = listings.slice(currentIndex, currentIndex + 3);
 
@@ -191,6 +223,30 @@ export default function DiscoverPage() {
     }, 200);
   }, [visibleCards, api, swipe]);
 
+  const handleSave = async (e, listingId) => {
+    e.stopPropagation();
+    setSavingId(listingId);
+    try {
+      if (savedIds.has(listingId)) {
+        await favoritesAPI.remove(listingId);
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(listingId);
+          return next;
+        });
+        toast.success('Eliminado de favoritos');
+      } else {
+        await favoritesAPI.add(listingId);
+        setSavedIds((prev) => new Set(prev).add(listingId));
+        toast.success('Guardado en favoritos');
+      }
+    } catch {
+      toast.error('Error al guardar');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const getPhotoIndex = (listingId) => photoIndices[listingId] || 0;
 
   const nextPhoto = (listingId, totalPhotos) => {
@@ -208,8 +264,14 @@ export default function DiscoverPage() {
   };
 
   const handleApplyFilters = () => {
-    applyFilters(localFilters);
+    applyFilters({ ...localFilters, city: selectedCity });
     setShowFilters(false);
+  };
+
+  const handleCityChange = (city) => {
+    setSelectedCity(city);
+    localStorage.setItem('cuartoya_city', city);
+    setLocalFilters({ ...localFilters, district: '' });
   };
 
   const stampOpacity = Math.min(Math.abs(dragState.x) / 100, 1);
@@ -229,7 +291,7 @@ export default function DiscoverPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Descubrir</h1>
-          <p className="text-sm text-gray-500">Cuartos en Huancayo</p>
+          <p className="text-sm text-gray-500">Cuartos en {selectedCity}</p>
         </div>
         <div className="flex items-center gap-3">
           {remainingLikes !== null && (
@@ -268,6 +330,7 @@ export default function DiscoverPage() {
             const photos = listing.photos || ['https://placehold.co/400x500/E8442A/white?text=CuartoYa'];
             const idx = getPhotoIndex(listing._id);
             const isTop = i === 0;
+            const isSaved = savedIds.has(listing._id);
 
             return (
               <animated.div
@@ -327,6 +390,52 @@ export default function DiscoverPage() {
                       </>
                     )}
 
+                    {/* Save / Report buttons (top right) */}
+                    {isTop && (
+                      <div className="absolute top-3 right-3 flex gap-2 z-20">
+                        <button
+                          onClick={(e) => handleSave(e, listing._id)}
+                          disabled={savingId === listing._id}
+                          className="w-9 h-9 bg-black/30 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors"
+                        >
+                          {savingId === listing._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-white' : ''}`} />
+                          )}
+                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenCardMenu(openCardMenu === listing._id ? null : listing._id);
+                            }}
+                            className="w-9 h-9 bg-black/30 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          {openCardMenu === listing._id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenCardMenu(null)} />
+                              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-20 w-48">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenCardMenu(null);
+                                    setReportModal({ open: true, id: listing._id });
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  <Flag className="w-4 h-4" />
+                                  Reportar publicacion
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* INTERESA stamp */}
                     {isTop && (
                       <div
@@ -360,7 +469,7 @@ export default function DiscoverPage() {
                           </Link>
                           <div className="flex items-center gap-1.5 text-white/80 text-sm mt-1">
                             <MapPin className="w-4 h-4" />
-                            {listing.district || 'Huancayo'}
+                            {listing.district || selectedCity}
                           </div>
                           {listing.amenities && listing.amenities.length > 0 && (
                             <div className="flex gap-2 mt-2">
@@ -447,6 +556,22 @@ export default function DiscoverPage() {
               </div>
 
               <div className="space-y-6">
+                {/* City selector */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Ciudad
+                  </label>
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => handleCityChange(e.target.value)}
+                    className="input-field"
+                  >
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Price range */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -481,7 +606,7 @@ export default function DiscoverPage() {
                     className="input-field"
                   >
                     <option value="">Todos los distritos</option>
-                    {DISTRICTS.map((d) => (
+                    {districts.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
@@ -571,6 +696,14 @@ export default function DiscoverPage() {
           </div>
         </>
       )}
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={reportModal.open}
+        onClose={() => setReportModal({ open: false, id: null })}
+        targetType="listing"
+        targetId={reportModal.id}
+      />
     </div>
   );
 }

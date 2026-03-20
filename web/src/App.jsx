@@ -11,9 +11,14 @@ import NewListingPage from './pages/NewListingPage';
 import ListingDetailPage from './pages/ListingDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import PremiumPage from './pages/PremiumPage';
+import VerificationPage from './pages/VerificationPage';
+import FavoritesPage from './pages/FavoritesPage';
+import AdminPage from './pages/AdminPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 export default function App() {
-  const { isAuthenticated, loadFromStorage } = useAuthStore();
+  const { isAuthenticated, user, loadFromStorage } = useAuthStore();
 
   useEffect(() => {
     loadFromStorage();
@@ -26,6 +31,12 @@ export default function App() {
         <Routes>
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/" replace /> : <AuthPage />
+          } />
+          <Route path="/forgot-password" element={
+            isAuthenticated ? <Navigate to="/" replace /> : <ForgotPasswordPage />
+          } />
+          <Route path="/reset-password" element={
+            isAuthenticated ? <Navigate to="/" replace /> : <ResetPasswordPage />
           } />
           <Route path="/" element={
             <ProtectedRoute><DiscoverPage /></ProtectedRoute>
@@ -47,6 +58,17 @@ export default function App() {
           } />
           <Route path="/premium" element={
             <ProtectedRoute><PremiumPage /></ProtectedRoute>
+          } />
+          <Route path="/verification" element={
+            <ProtectedRoute><VerificationPage /></ProtectedRoute>
+          } />
+          <Route path="/favorites" element={
+            <ProtectedRoute><FavoritesPage /></ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              {user?.role === 'admin' ? <AdminPage /> : <Navigate to="/" replace />}
+            </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

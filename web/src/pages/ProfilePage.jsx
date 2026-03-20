@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { authAPI } from '../services/api';
+import { authAPI, usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   User,
@@ -13,6 +13,7 @@ import {
   Crown,
   ChevronRight,
   Shield,
+  ShieldCheck,
   Bell,
   HelpCircle,
   FileText,
@@ -26,6 +27,8 @@ import {
   Loader2,
   Settings,
   Star,
+  UserX,
+  Ban,
 } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -33,12 +36,15 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
   const [editData, setEditData] = useState({
     name: user?.name || '',
     phone: user?.phone || '',
     district: user?.district || '',
   });
   const fileInputRef = useRef(null);
+
+  const isVerified = user?.verified || user?.verificationStatus === 'verified';
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -71,6 +77,18 @@ export default function ProfilePage() {
     navigate('/login');
   };
 
+  const handleBlockUser = async (userId) => {
+    setIsBlocking(true);
+    try {
+      await usersAPI.block(userId);
+      toast.success('Usuario bloqueado');
+    } catch {
+      toast.error('Error al bloquear usuario');
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
   const stats = [
     { icon: Eye, label: 'Vistas', value: user?.stats?.views || 0 },
     { icon: Heart, label: 'Likes', value: user?.stats?.likes || 0 },
@@ -85,6 +103,20 @@ export default function ProfilePage() {
       desc: user?.plan === 'pro' ? 'Plan Pro activo' : user?.plan === 'agency' ? 'Plan Agency activo' : 'Plan Gratis',
       action: () => navigate('/premium'),
       highlight: true,
+    },
+    ...(!isVerified ? [{
+      icon: Shield,
+      label: 'Verificar identidad',
+      desc: 'Verifica tu DNI para obtener la insignia',
+      action: () => navigate('/verification'),
+      highlight: false,
+      verification: true,
+    }] : []),
+    {
+      icon: Heart,
+      label: 'Mis favoritos',
+      desc: 'Habitaciones guardadas',
+      action: () => navigate('/favorites'),
     },
     {
       icon: Bell,
@@ -160,18 +192,31 @@ export default function ProfilePage() {
                 className="input-field py-1.5 text-lg font-bold"
               />
             ) : (
-              <h2 className="text-xl font-bold text-gray-900">{user?.name || 'Usuario'}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-900">{user?.name || 'Usuario'}</h2>
+                {isVerified && (
+                  <ShieldCheck className="w-5 h-5 text-blue-500" />
+                )}
+              </div>
             )}
             <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
               <Mail className="w-3.5 h-3.5" />
               {user?.email}
             </p>
-            {user?.plan && user.plan !== 'free' && (
-              <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
-                <Star className="w-3 h-3" fill="currentColor" />
-                {user.plan === 'pro' ? 'Pro' : 'Agency'}
-              </span>
-            )}
+            <div className="flex items-center gap-2 mt-1.5">
+              {user?.plan && user.plan !== 'free' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
+                  <Star className="w-3 h-3" fill="currentColor" />
+                  {user.plan === 'pro' ? 'Pro' : 'Agency'}
+                </span>
+              )}
+              {isVerified && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  <ShieldCheck className="w-3 h-3" />
+                  Verificado
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Edit button */}
@@ -227,6 +272,23 @@ export default function ProfilePage() {
         )}
       </div>
 
+      {/* Verification prompt */}
+      {!isVerified && (
+        <Link
+          to="/verification"
+          className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl mb-6 hover:bg-blue-100 transition-colors"
+        >
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+            <Shield className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-blue-900 text-sm">Verifica tu identidad</p>
+            <p className="text-xs text-blue-600">Obtiene la insignia de verificado con tu DNI</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-blue-400" />
+        </Link>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         {stats.map(({ icon: Icon, label, value }) => (
@@ -240,16 +302,18 @@ export default function ProfilePage() {
 
       {/* Menu */}
       <div className="card divide-y divide-gray-50">
-        {menuItems.map(({ icon: Icon, label, desc, action, highlight }) => (
+        {menuItems.map(({ icon: Icon, label, desc, action, highlight, verification }) => (
           <button
             key={label}
             onClick={action}
             className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left"
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              highlight ? 'bg-yellow-50' : 'bg-gray-50'
+              highlight ? 'bg-yellow-50' : verification ? 'bg-blue-50' : 'bg-gray-50'
             }`}>
-              <Icon className={`w-5 h-5 ${highlight ? 'text-yellow-600' : 'text-gray-500'}`} />
+              <Icon className={`w-5 h-5 ${
+                highlight ? 'text-yellow-600' : verification ? 'text-blue-600' : 'text-gray-500'
+              }`} />
             </div>
             <div className="flex-1">
               <p className="font-medium text-gray-900 text-sm">{label}</p>
@@ -269,7 +333,7 @@ export default function ProfilePage() {
         Cerrar sesion
       </button>
 
-      <p className="text-center text-xs text-gray-400 mt-4">CuartoYa v1.0.0</p>
+      <p className="text-center text-xs text-gray-400 mt-4">CuartoYa v1.1.0</p>
     </div>
   );
 }

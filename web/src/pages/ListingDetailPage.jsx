@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { listingsAPI, swipesAPI } from '../services/api';
+import { listingsAPI, swipesAPI, favoritesAPI } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import ReportModal from '../components/common/ReportModal';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import {
@@ -33,6 +34,10 @@ import {
   Ruler,
   CheckCircle2,
   Shield,
+  Bookmark,
+  Flag,
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 
 const AMENITY_ICONS = {
@@ -69,6 +74,9 @@ export default function ListingDetailPage() {
   const { isAuthenticated } = useAuthStore();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const { data: listing, isLoading, error } = useQuery({
     queryKey: ['listing', id],
@@ -102,6 +110,30 @@ export default function ListingDetailPage() {
     }
   };
 
+  const handleToggleSave = async () => {
+    if (!isAuthenticated) {
+      toast.error('Inicia sesion para guardar');
+      navigate('/login');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      if (isSaved) {
+        await favoritesAPI.remove(id);
+        setIsSaved(false);
+        toast.success('Eliminado de favoritos');
+      } else {
+        await favoritesAPI.add(id);
+        setIsSaved(true);
+        toast.success('Guardado en favoritos');
+      }
+    } catch {
+      toast.error('Error al guardar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -126,6 +158,8 @@ export default function ListingDetailPage() {
     ? listing.photos
     : ['https://placehold.co/800x500/E8442A/white?text=CuartoYa'];
 
+  const ownerVerified = listing.owner?.verified || listing.owner?.verificationStatus === 'verified';
+
   return (
     <div className="max-w-4xl mx-auto pb-8">
       {/* Photo gallery */}
@@ -146,6 +180,21 @@ export default function ListingDetailPage() {
 
         {/* Action buttons */}
         <div className="absolute top-4 right-4 flex gap-2">
+          <button
+            onClick={handleToggleSave}
+            disabled={isSaving}
+            className={`w-10 h-10 backdrop-blur rounded-full flex items-center justify-center shadow-sm transition-colors ${
+              isSaved
+                ? 'bg-primary text-white hover:bg-primary-hover'
+                : 'bg-white/90 text-gray-700 hover:bg-white'
+            }`}
+          >
+            {isSaving ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+            )}
+          </button>
           <button
             onClick={handleShare}
             className="w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm hover:bg-white"
@@ -285,6 +334,15 @@ export default function ListingDetailPage() {
                 </ul>
               </div>
             )}
+
+            {/* Report button */}
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
+            >
+              <Flag className="w-4 h-4" />
+              Reportar publicacion
+            </button>
           </div>
 
           {/* Sidebar - owner info */}
@@ -300,12 +358,24 @@ export default function ListingDetailPage() {
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">{listing.owner?.name || 'Propietario'}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-gray-900">{listing.owner?.name || 'Propietario'}</p>
+                    {ownerVerified && (
+                      <ShieldCheck className="w-4 h-4 text-blue-500" />
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500">
                     Miembro desde {dayjs(listing.owner?.createdAt).format('MMM YYYY')}
                   </p>
                 </div>
               </div>
+
+              {ownerVerified && (
+                <div className="flex items-center gap-2 mb-4 bg-blue-50 px-3 py-2 rounded-xl">
+                  <ShieldCheck className="w-4 h-4 text-blue-500" />
+                  <span className="text-xs font-medium text-blue-600">Identidad verificada</span>
+                </div>
+              )}
 
               {listing.owner?.phone && (
                 <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
@@ -329,6 +399,19 @@ export default function ListingDetailPage() {
                 Me interesa
               </button>
 
+              <button
+                onClick={handleToggleSave}
+                disabled={isSaving}
+                className="btn-ghost w-full flex items-center justify-center gap-2 mt-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current text-primary' : ''}`} />
+                )}
+                {isSaved ? 'Guardado' : 'Guardar'}
+              </button>
+
               <p className="text-xs text-gray-400 text-center mt-3">
                 Publicado {dayjs(listing.createdAt).fromNow?.() || dayjs(listing.createdAt).format('DD/MM/YYYY')}
               </p>
@@ -336,6 +419,14 @@ export default function ListingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="listing"
+        targetId={id}
+      />
     </div>
   );
 }

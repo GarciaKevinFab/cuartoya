@@ -83,12 +83,38 @@ export const matchesAPI = {
 
 export const usersAPI = {
   getProfile: (id) => api.get(`/users/${id}`),
+  block: (userId) => api.post(`/users/${userId}/block`),
+  unblock: (userId) => api.delete(`/users/${userId}/block`),
 };
 
 export const paymentsAPI = {
   plans: () => api.get('/payments/plans'),
   subscribe: (data) => api.post('/payments/subscribe', data),
   mySubscription: () => api.get('/payments/subscription'),
+};
+
+export const verificationAPI = {
+  verifyDni: (dni) => api.post('/verification/dni', { dni }),
+  getStatus: () => api.get('/verification/status'),
+};
+
+export const favoritesAPI = {
+  add: (listingId) => api.post(`/favorites/${listingId}`),
+  remove: (listingId) => api.delete(`/favorites/${listingId}`),
+  list: () => api.get('/favorites'),
+};
+
+export const reportsAPI = {
+  create: (data) => api.post('/reports', data),
+  myReports: () => api.get('/reports/my'),
+};
+
+export const adminAPI = {
+  stats: () => api.get('/admin/stats'),
+  users: (page) => api.get('/admin/users', { params: { page } }),
+  banUser: (id, reason) => api.put(`/admin/users/${id}/ban`, { reason }),
+  reports: () => api.get('/admin/reports'),
+  resolveReport: (id, action) => api.put(`/admin/reports/${id}/resolve`, { action }),
 };
 
 export default api;

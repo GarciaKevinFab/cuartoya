@@ -30,11 +30,18 @@ class Settings(BaseSettings):
     FIREBASE_PRIVATE_KEY: str = ""
     FIREBASE_CLIENT_EMAIL: str = ""
 
+    RENIEC_API_TOKEN: str = ""
+    ADMIN_EMAILS: str = '["admin@cuartoya.pe"]'
+
     CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:3000","exp://localhost:19000"]'
 
     @property
     def cors_origins_list(self) -> List[str]:
         return json.loads(self.CORS_ORIGINS)
+
+    @property
+    def admin_emails_list(self) -> List[str]:
+        return json.loads(self.ADMIN_EMAILS)
 
     class Config:
         env_file = ".env"

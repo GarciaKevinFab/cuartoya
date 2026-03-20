@@ -10,6 +10,7 @@ class UserRole(str, enum.Enum):
     tenant = "tenant"
     landlord = "landlord"
     both = "both"
+    admin = "admin"
 
 
 class User(Base):
@@ -31,6 +32,9 @@ class User(Base):
     occupation: Mapped[str | None] = mapped_column(String(100), nullable=True)
     university: Mapped[str | None] = mapped_column(String(200), nullable=True)
     push_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    ban_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)

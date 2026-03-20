@@ -23,7 +23,7 @@ export const useFeedStore = create((set, get) => ({
     set({ isLoading: true });
     try {
       const params = {};
-      if (filters.city) params.city = filters.city;
+      if (filters.city) params.city = filters.city.toLowerCase().replace(/ /g, '_');
       if (filters.minPrice) params.min_price = filters.minPrice;
       if (filters.maxPrice) params.max_price = filters.maxPrice;
       if (filters.district) params.district = filters.district;

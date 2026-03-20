@@ -163,12 +163,12 @@ async def seed_database():
         from sqlalchemy import select, func
         result = await db.execute(select(func.count(User.id)))
         if result.scalar() > 0:
-            print("⚠️  La base de datos ya tiene datos. Limpiando...")
+            print("[WARN]  La base de datos ya tiene datos. Limpiando...")
             from app.core.database import engine, Base
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.drop_all)
                 await conn.run_sync(Base.metadata.create_all)
-            print("🗑️  Tablas recreadas")
+            print("[OK]  Tablas recreadas")
 
     async with async_session() as db:
         # Create users
@@ -192,7 +192,7 @@ async def seed_database():
             users.append(user)
 
         await db.flush()
-        print(f"👤 {len(users)} usuarios creados (incluye admin y propietarios de nuevas ciudades)")
+        print(f"[+] {len(users)} usuarios creados (incluye admin y propietarios de nuevas ciudades)")
 
         # Create listings
         listings = []
@@ -236,7 +236,7 @@ async def seed_database():
             listings.append(listing)
 
         await db.flush()
-        print(f"🏠 {len(listings)} habitaciones creadas")
+        print(f"[+] {len(listings)} habitaciones creadas")
 
         # Create swipes (tenants swiping on listings)
         tenants = [u for u in users if u.role in ("tenant", "both")]
@@ -289,7 +289,7 @@ async def seed_database():
                     swipe_pairs.add(pair)
 
         await db.flush()
-        print(f"👆 {len(swipes)} swipes creados")
+        print(f"[+] {len(swipes)} swipes creados")
 
         # Create matches
         match_data = [
@@ -314,7 +314,7 @@ async def seed_database():
                 matches.append(match)
 
         await db.flush()
-        print(f"🤝 {len(matches)} matches creados")
+        print(f"[+] {len(matches)} matches creados")
 
         # Create messages for matches
         chat_messages = [
@@ -355,7 +355,7 @@ async def seed_database():
                 db.add(msg)
 
         await db.flush()
-        print(f"💬 {len(chat_messages)} mensajes de chat creados")
+        print(f"[+] {len(chat_messages)} mensajes de chat creados")
 
         # Create demo reports
         report1 = Report(
@@ -391,7 +391,7 @@ async def seed_database():
         db.add(report3)
 
         await db.flush()
-        print(f"🚨 3 reportes demo creados")
+        print(f"[+] 3 reportes demo creados")
 
         # Create demo favorites
         fav1 = Favorite(
@@ -423,7 +423,7 @@ async def seed_database():
         db.add(fav4)
 
         await db.flush()
-        print(f"⭐ 4 favoritos demo creados")
+        print(f"[+] 4 favoritos demo creados")
 
         await db.commit()
 
@@ -433,18 +433,18 @@ async def seed_database():
     la_oroya_count = sum(1 for l in DEMO_LISTINGS if l.get("city") == "la_oroya")
     junin_count = sum(1 for l in DEMO_LISTINGS if l.get("city") == "junin")
 
-    print("\n✅ Base de datos poblada con datos demo v2.0")
-    print("\n📋 Credenciales de prueba:")
+    print("\n[OK] Base de datos poblada con datos demo v2.0")
+    print("\n[INFO] Credenciales de prueba:")
     print("  Propietario Premium: maria.quispe@demo.com / Demo1234!")
     print("  Inquilino:           jose.flores@demo.com / Demo1234!")
     print("  Test general:        test@cuartoya.pe / Test1234!")
     print("  Administrador:       admin@cuartoya.pe / Admin1234!")
-    print(f"\n🏠 {len(DEMO_LISTINGS)} habitaciones en la region Junin:")
+    print(f"\n[+] {len(DEMO_LISTINGS)} habitaciones en la region Junin:")
     print(f"  Huancayo: {huancayo_count} (El Tambo: 8 | Chilca: 5 | Cercado: 4 | Huancan: 2 | Pilcomayo: 1)")
     print(f"  Tarma: {tarma_count}")
     print(f"  La Oroya: {la_oroya_count}")
     print(f"  Junin: {junin_count}")
-    print(f"\n🚨 3 reportes demo | ⭐ 4 favoritos demo")
+    print(f"\n[+] 3 reportes demo | [+] 4 favoritos demo")
 
 
 if __name__ == "__main__":

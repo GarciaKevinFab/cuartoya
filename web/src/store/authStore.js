@@ -25,7 +25,8 @@ export const useAuthStore = create((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await authAPI.login(credentials);
-      const { token, user } = data;
+      const token = data.access_token || data.token;
+      const user = data.user;
       localStorage.setItem('cuartoya_token', token);
       localStorage.setItem('cuartoya_user', JSON.stringify(user));
       set({ token, user, isAuthenticated: true, isLoading: false });
@@ -43,7 +44,8 @@ export const useAuthStore = create((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await authAPI.register(userData);
-      const { token, user } = data;
+      const token = data.access_token || data.token;
+      const user = data.user;
       localStorage.setItem('cuartoya_token', token);
       localStorage.setItem('cuartoya_user', JSON.stringify(user));
       set({ token, user, isAuthenticated: true, isLoading: false });

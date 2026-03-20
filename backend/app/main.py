@@ -30,10 +30,10 @@ async def lifespan(app: FastAPI):
     await create_tables()
     await init_firebase()
     Path("uploads").mkdir(exist_ok=True)
-    print(f"🏠 {settings.APP_NAME} API v{APP_VERSION} iniciada en modo {settings.APP_ENV}")
+    print(f"[CuartoYa] API v{APP_VERSION} iniciada en modo {settings.APP_ENV}")
     yield
     # Shutdown
-    print(f"🏠 {settings.APP_NAME} API detenida")
+    print(f"[CuartoYa] API detenida")
 
 
 app = FastAPI(
@@ -45,17 +45,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Rate limiting middleware (global: 120 requests per minute per IP)
-app.add_middleware(RateLimitMiddleware, max_calls=120, period=60)
+# CORS — en desarrollo permitir todos los origenes
+cors_origins = settings.cors_origins_list
+if settings.APP_ENV == "development":
+    cors_origins = ["*"]
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=True if settings.APP_ENV != "development" else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting middleware (global: 120 requests per minute per IP)
+app.add_middleware(RateLimitMiddleware, max_calls=120, period=60)
 app.add_middleware(GZipMiddleware)
 
 # Static files for local uploads

@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+// API URL dinamica: usa el mismo host desde donde se accede la web
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  const host = window.location.hostname;
+  return `http://${host}:8000/api/v1`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -33,19 +40,21 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
-  me: () => api.get('/auth/me'),
-  updateProfile: (data) => api.patch('/auth/me', data),
+  me: () => api.get('/users/me'),
+  updateProfile: (data) => api.put('/users/me', data),
   uploadAvatar: (file) => {
     const formData = new FormData();
-    formData.append('avatar', file);
-    return api.post('/auth/me/avatar', formData, {
+    formData.append('file', file);
+    return api.post('/users/me/photo', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 export const listingsAPI = {
-  feed: (params) => api.get('/listings/feed', { params }),
+  feed: (params) => api.get('/listings', { params }),
   getById: (id) => api.get(`/listings/${id}`),
   create: (data) => {
     const formData = new FormData();

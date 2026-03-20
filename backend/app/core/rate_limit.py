@@ -113,6 +113,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in ("/health", "/docs", "/redoc", "/openapi.json"):
             return await call_next(request)
 
+        # Skip CORS preflight requests
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip WebSocket connections
         if request.url.path.startswith("/ws"):
             return await call_next(request)

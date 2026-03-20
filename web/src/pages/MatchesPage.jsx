@@ -59,13 +59,15 @@ export default function MatchesPage() {
     inputRef.current?.focus();
   };
 
-  const activeMatch = matches.find((m) => m._id === activeMatchId);
+  // Backend MatchResponse retorna campos planos: listing_title, listing_photo,
+  // listing_price, other_user_name, other_user_photo, last_message, last_message_at, unread_count
+  const activeMatch = matches.find((m) => m.id === activeMatchId);
 
   const filteredMatches = matches.filter((m) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    const otherName = (m.listing?.title || m.otherUser?.name || '').toLowerCase();
-    return otherName.includes(q);
+    const searchable = (m.listing_title || m.other_user_name || '').toLowerCase();
+    return searchable.includes(q);
   });
 
   const formatTime = (date) => {
@@ -116,15 +118,13 @@ export default function MatchesPage() {
             </div>
           ) : (
             filteredMatches.map((match) => {
-              const otherUser = match.otherUser || {};
-              const listing = match.listing || {};
-              const lastMsg = match.lastMessage;
-              const isActive = match._id === activeMatchId;
+              const hasUnread = (match.unread_count || 0) > 0;
+              const isActive = match.id === activeMatchId;
 
               return (
                 <button
-                  key={match._id}
-                  onClick={() => setActiveMatch(match._id)}
+                  key={match.id}
+                  onClick={() => setActiveMatch(match.id)}
                   className={`w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 ${
                     isActive ? 'bg-primary-light/50' : ''
                   }`}
@@ -132,15 +132,15 @@ export default function MatchesPage() {
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                      {listing.photos?.[0] ? (
-                        <img src={listing.photos[0]} alt="" className="w-full h-full object-cover" />
+                      {match.listing_photo ? (
+                        <img src={match.listing_photo} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-primary-light flex items-center justify-center">
                           <Home className="w-5 h-5 text-primary" />
                         </div>
                       )}
                     </div>
-                    {match.unread && (
+                    {hasUnread && (
                       <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white" />
                     )}
                   </div>
@@ -148,20 +148,20 @@ export default function MatchesPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`font-semibold text-sm truncate ${match.unread ? 'text-gray-900' : 'text-gray-700'}`}>
-                        {listing.title || otherUser.name || 'Match'}
+                      <p className={`font-semibold text-sm truncate ${hasUnread ? 'text-gray-900' : 'text-gray-700'}`}>
+                        {match.listing_title || match.other_user_name || 'Match'}
                       </p>
                       <span className="text-xs text-gray-400 shrink-0 ml-2">
-                        {formatTime(lastMsg?.createdAt || match.createdAt)}
+                        {formatTime(match.last_message_at || match.created_at)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      {listing.price && (
-                        <span className="text-xs text-primary font-medium">S/{listing.price}</span>
+                      {match.listing_price && (
+                        <span className="text-xs text-primary font-medium">S/{match.listing_price}</span>
                       )}
-                      {listing.price && lastMsg && <span className="text-gray-300 text-xs">·</span>}
-                      <p className={`text-xs truncate ${match.unread ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
-                        {lastMsg?.text || 'Nuevo match - envia un mensaje'}
+                      {match.listing_price && match.last_message && <span className="text-gray-300 text-xs">·</span>}
+                      <p className={`text-xs truncate ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
+                        {match.last_message || 'Nuevo match - envia un mensaje'}
                       </p>
                     </div>
                   </div>
@@ -189,8 +189,8 @@ export default function MatchesPage() {
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                {activeMatch.listing?.photos?.[0] ? (
-                  <img src={activeMatch.listing.photos[0]} alt="" className="w-full h-full object-cover" />
+                {activeMatch.listing_photo ? (
+                  <img src={activeMatch.listing_photo} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-primary-light flex items-center justify-center">
                     <Home className="w-5 h-5 text-primary" />
@@ -199,20 +199,17 @@ export default function MatchesPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm truncate">
-                  {activeMatch.listing?.title || activeMatch.otherUser?.name || 'Chat'}
+                  {activeMatch.listing_title || activeMatch.other_user_name || 'Chat'}
                 </p>
                 <div className="flex items-center gap-1 text-xs text-gray-500">
-                  {activeMatch.listing?.district && (
-                    <>
-                      <MapPin className="w-3 h-3" />
-                      <span>{activeMatch.listing.district}</span>
-                    </>
+                  {activeMatch.other_user_name && (
+                    <span>con {activeMatch.other_user_name}</span>
                   )}
-                  {activeMatch.listing?.price && (
+                  {activeMatch.listing_price && (
                     <>
                       <span className="mx-1">·</span>
                       <Banknote className="w-3 h-3" />
-                      <span>S/{activeMatch.listing.price}/mes</span>
+                      <span>S/{activeMatch.listing_price}/mes</span>
                     </>
                   )}
                 </div>
@@ -239,15 +236,16 @@ export default function MatchesPage() {
               ) : (
                 <>
                   {messages.map((msg, idx) => {
-                    const isMe = msg.sender === 'me' || msg.sender === user?._id;
-                    const showDate = idx === 0 || !dayjs(msg.createdAt).isSame(dayjs(messages[idx - 1]?.createdAt), 'day');
+                    // Backend MessageResponse retorna: id, match_id, sender_id, content, is_read, created_at
+                    const isMe = msg.sender_id === 'me' || msg.sender_id === user?.id;
+                    const showDate = idx === 0 || !dayjs(msg.created_at).isSame(dayjs(messages[idx - 1]?.created_at), 'day');
 
                     return (
-                      <div key={msg._id || idx}>
+                      <div key={msg.id || idx}>
                         {showDate && (
                           <div className="flex justify-center my-4">
                             <span className="bg-gray-200 text-gray-500 text-xs px-3 py-1 rounded-full">
-                              {dayjs(msg.createdAt).format('DD MMM YYYY')}
+                              {dayjs(msg.created_at).format('DD MMM YYYY')}
                             </span>
                           </div>
                         )}
@@ -259,13 +257,13 @@ export default function MatchesPage() {
                                 : 'bg-white text-gray-800 rounded-bl-md shadow-sm'
                             } ${msg.pending ? 'opacity-60' : ''} ${msg.failed ? 'border-2 border-red-300' : ''}`}
                           >
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                             <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                               <span className={`text-[10px] ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
-                                {dayjs(msg.createdAt).format('HH:mm')}
+                                {dayjs(msg.created_at).format('HH:mm')}
                               </span>
                               {isMe && !msg.pending && (
-                                msg.read
+                                msg.is_read
                                   ? <CheckCheck className="w-3 h-3 text-white/60" />
                                   : <Check className="w-3 h-3 text-white/60" />
                               )}

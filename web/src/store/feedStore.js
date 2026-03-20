@@ -34,8 +34,8 @@ export const useFeedStore = create((set, get) => ({
       set({
         listings: data.listings || [],
         currentIndex: 0,
-        hasMore: data.hasMore ?? false,
-        remainingLikes: data.remainingLikes ?? null,
+        hasMore: data.has_more ?? false,
+        remainingLikes: data.remaining_likes ?? null,
         isLoading: false,
       });
     } catch {
@@ -47,9 +47,11 @@ export const useFeedStore = create((set, get) => ({
     const { currentIndex, listings, remainingLikes } = get();
 
     try {
+      // Convertir direction del UI a action del backend
+      const actionMap = { right: 'like', left: 'nope', up: 'super_like' };
       await swipesAPI.swipe({
         listing_id: listingId,
-        direction,
+        action: actionMap[direction] || direction,
       });
 
       const newRemaining = direction === 'right' && remainingLikes !== null
@@ -69,7 +71,7 @@ export const useFeedStore = create((set, get) => ({
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.message || 'Error al hacer swipe',
+        error: error.response?.data?.detail || 'Error al hacer swipe',
       };
     }
   },

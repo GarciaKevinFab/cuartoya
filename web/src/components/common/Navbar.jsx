@@ -44,7 +44,7 @@ export default function Navbar() {
     window.dispatchEvent(new CustomEvent('cityChanged', { detail: city }));
   };
 
-  const isVerified = user?.verified || user?.verificationStatus === 'verified';
+  const isVerified = user?.is_verified;
 
   return (
     <>
@@ -169,8 +169,8 @@ export default function Navbar() {
         <div className="px-4 py-4 border-t border-gray-100">
           <Link to="/profile" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary-light overflow-hidden shrink-0">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              {user?.profile_photo ? (
+                <img src={user.profile_photo} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <User className="w-5 h-5 text-primary" />
@@ -180,7 +180,7 @@ export default function Navbar() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="text-sm font-semibold text-gray-900 truncate">
-                  {user?.name || 'Usuario'}
+                  {user?.full_name || 'Usuario'}
                 </p>
                 {isVerified && (
                   <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0" />
@@ -241,8 +241,8 @@ export default function Navbar() {
               </span>
             )}
             <Link to="/profile" className="w-8 h-8 rounded-full bg-primary-light overflow-hidden">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              {user?.profile_photo ? (
+                <img src={user.profile_photo} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <User className="w-4 h-4 text-primary" />

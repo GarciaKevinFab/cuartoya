@@ -2,7 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useMatchesStore } from '../store/matchesStore';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws';
+const getWsBaseUrl = () => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  const host = window.location.hostname;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${host}:8000/ws`;
+};
+const WS_BASE_URL = getWsBaseUrl();
 const RECONNECT_DELAY_BASE = 1000;
 const MAX_RECONNECT_DELAY = 30000;
 const MAX_RETRIES = 10;
@@ -17,23 +23,17 @@ export function useChat() {
   const { addMessage, activeMatchId } = useMatchesStore();
 
   const connect = useCallback(() => {
-    if (!token || !isAuthenticated) return;
+    if (!token || !isAuthenticated || !activeMatchId) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket(`${WS_URL}?token=${token}`);
+      // Backend WebSocket endpoint: /ws/chat/{match_id}?token=...
+      const ws = new WebSocket(`${WS_BASE_URL}/chat/${activeMatchId}?token=${token}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
         isConnectedRef.current = true;
         retriesRef.current = 0;
-
-        if (activeMatchId) {
-          ws.send(JSON.stringify({
-            type: 'join',
-            matchId: activeMatchId,
-          }));
-        }
       };
 
       ws.onmessage = (event) => {
@@ -42,7 +42,15 @@ export function useChat() {
 
           switch (data.type) {
             case 'message':
-              addMessage(data.message);
+              // Backend envia: { type, id, sender_id, sender_name, content, created_at }
+              addMessage({
+                id: data.id,
+                match_id: activeMatchId,
+                sender_id: data.sender_id,
+                sender_name: data.sender_name,
+                content: data.content,
+                created_at: data.created_at,
+              });
               break;
 
             case 'typing':
@@ -63,7 +71,7 @@ export function useChat() {
               break;
           }
         } catch {
-          /* ignore malformed messages */
+          /* ignorar mensajes malformados */
         }
       };
 
@@ -88,7 +96,7 @@ export function useChat() {
         ws.close();
       };
     } catch {
-      /* connection failed, will retry via onclose */
+      /* fallo de conexion, se reintentara via onclose */
     }
   }, [token, isAuthenticated, addMessage, activeMatchId]);
 
@@ -108,17 +116,25 @@ export function useChat() {
     retriesRef.current = 0;
   }, []);
 
-  const sendTyping = useCallback((matchId) => {
+  const sendMessage = useCallback((content) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && content) {
+      // Backend espera JSON con { content: string }
+      wsRef.current.send(JSON.stringify({ content }));
+    }
+  }, []);
+
+  const sendTyping = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'typing',
-        matchId,
       }));
     }
   }, []);
 
+  // Conectar/desconectar cuando cambia el match activo
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isAuthenticated && token && activeMatchId) {
+      disconnect();
       connect();
     } else {
       disconnect();
@@ -127,19 +143,11 @@ export function useChat() {
     return () => {
       disconnect();
     };
-  }, [isAuthenticated, token, connect, disconnect]);
-
-  useEffect(() => {
-    if (activeMatchId && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'join',
-        matchId: activeMatchId,
-      }));
-    }
-  }, [activeMatchId]);
+  }, [isAuthenticated, token, activeMatchId, connect, disconnect]);
 
   return {
     isConnected: isConnectedRef.current,
+    sendMessage,
     sendTyping,
   };
 }

@@ -91,10 +91,10 @@ export default function ListingDetailPage() {
     }
     setIsLiking(true);
     try {
-      await swipesAPI.swipe({ listing_id: id, direction: 'right' });
+      await swipesAPI.swipe({ listing_id: id, action: 'like' });
       toast.success('Interes enviado al propietario');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al enviar interes');
+      toast.error(err.response?.data?.detail || 'Error al enviar interes');
     } finally {
       setIsLiking(false);
     }
@@ -158,7 +158,7 @@ export default function ListingDetailPage() {
     ? listing.photos
     : ['https://placehold.co/800x500/E8442A/white?text=CuartoYa'];
 
-  const ownerVerified = listing.owner?.verified || listing.owner?.verificationStatus === 'verified';
+  const ownerVerified = listing.owner_is_verified;
 
   return (
     <div className="max-w-4xl mx-auto pb-8">
@@ -272,10 +272,10 @@ export default function ListingDetailPage() {
 
               {/* Tags */}
               <div className="flex flex-wrap gap-2 mt-4">
-                {listing.roomType && (
+                {listing.room_type && (
                   <span className="badge bg-primary-light text-primary">
                     <BedDouble className="w-3.5 h-3.5 mr-1" />
-                    {listing.roomType === 'single' ? 'Individual' : listing.roomType === 'double' ? 'Doble' : listing.roomType === 'suite' ? 'Suite' : 'Compartido'}
+                    {listing.room_type === 'single' ? 'Individual' : listing.room_type === 'double' ? 'Doble' : listing.room_type === 'suite' ? 'Suite' : 'Compartido'}
                   </span>
                 )}
                 {listing.size && (
@@ -284,7 +284,7 @@ export default function ListingDetailPage() {
                     {listing.size} m2
                   </span>
                 )}
-                {listing.available && (
+                {listing.is_active && (
                   <span className="badge bg-green-50 text-success">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                     Disponible
@@ -351,21 +351,21 @@ export default function ListingDetailPage() {
               <h3 className="font-semibold text-gray-900 mb-4">Propietario</h3>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-primary-light rounded-full flex items-center justify-center">
-                  {listing.owner?.avatar ? (
-                    <img src={listing.owner.avatar} alt="" className="w-12 h-12 rounded-full object-cover" />
+                  {listing.owner_photo ? (
+                    <img src={listing.owner_photo} alt="" className="w-12 h-12 rounded-full object-cover" />
                   ) : (
                     <User className="w-6 h-6 text-primary" />
                   )}
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <p className="font-semibold text-gray-900">{listing.owner?.name || 'Propietario'}</p>
+                    <p className="font-semibold text-gray-900">{listing.owner_name || 'Propietario'}</p>
                     {ownerVerified && (
                       <ShieldCheck className="w-4 h-4 text-blue-500" />
                     )}
                   </div>
                   <p className="text-xs text-gray-500">
-                    Miembro desde {dayjs(listing.owner?.createdAt).format('MMM YYYY')}
+                    Miembro desde {dayjs(listing.created_at).format('MMM YYYY')}
                   </p>
                 </div>
               </div>
@@ -377,18 +377,7 @@ export default function ListingDetailPage() {
                 </div>
               )}
 
-              {listing.owner?.phone && (
-                <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
-                  <Phone className="w-4 h-4" />
-                  {listing.owner.phone}
-                </div>
-              )}
-
-              {listing.owner?.responseRate && (
-                <div className="text-xs text-gray-500 mb-4">
-                  Tasa de respuesta: {listing.owner.responseRate}%
-                </div>
-              )}
+              {/* Informacion de contacto no disponible en este endpoint */}
 
               <button
                 onClick={handleLike}
@@ -413,7 +402,7 @@ export default function ListingDetailPage() {
               </button>
 
               <p className="text-xs text-gray-400 text-center mt-3">
-                Publicado {dayjs(listing.createdAt).fromNow?.() || dayjs(listing.createdAt).format('DD/MM/YYYY')}
+                Publicado {dayjs(listing.created_at).fromNow?.() || dayjs(listing.created_at).format('DD/MM/YYYY')}
               </p>
             </div>
           </div>

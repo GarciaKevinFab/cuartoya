@@ -29,9 +29,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('cuartoya_token');
-      localStorage.removeItem('cuartoya_user');
-      window.location.href = '/login';
+      // Evitar redireccion en rutas publicas de auth
+      const publicPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
+      const isPublic = publicPaths.some((p) => error.config?.url?.includes(p));
+      if (!isPublic) {
+        localStorage.removeItem('cuartoya_token');
+        localStorage.removeItem('cuartoya_user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -49,7 +54,7 @@ export const authAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
@@ -71,35 +76,40 @@ export const listingsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  update: (id, data) => api.patch(`/listings/${id}`, data),
+  update: (id, data) => api.put(`/listings/${id}`, data),
   delete: (id) => api.delete(`/listings/${id}`),
-  myListings: () => api.get('/listings/mine'),
-  stats: () => api.get('/listings/stats'),
+  myListings: () => api.get('/listings/my'),
+  stats: () => api.get('/users/me/stats'),
 };
 
 export const swipesAPI = {
   swipe: (data) => api.post('/swipes', data),
   pending: () => api.get('/swipes/pending'),
-  respond: (id, data) => api.post(`/swipes/${id}/respond`, data),
+  accept: (id) => api.post(`/swipes/${id}/accept`),
+  reject: (id) => api.post(`/swipes/${id}/reject`),
+  respond: (id, data) => api.post(`/swipes/${id}/${data.action || 'accept'}`),
 };
 
 export const matchesAPI = {
   list: () => api.get('/matches'),
+  detail: (matchId) => api.get(`/matches/${matchId}`),
   messages: (matchId, params) => api.get(`/matches/${matchId}/messages`, { params }),
   sendMessage: (matchId, data) => api.post(`/matches/${matchId}/messages`, data),
-  markRead: (matchId) => api.patch(`/matches/${matchId}/read`),
+  markRead: (matchId, messageId) => api.put(`/matches/${matchId}/messages/${messageId}/read`),
 };
 
 export const usersAPI = {
   getProfile: (id) => api.get(`/users/${id}`),
-  block: (userId) => api.post(`/users/${userId}/block`),
-  unblock: (userId) => api.delete(`/users/${userId}/block`),
+  block: (userId) => api.post(`/reports/users/${userId}/block`),
+  unblock: (userId) => api.delete(`/reports/users/${userId}/block`),
+  blockedList: () => api.get('/reports/users/me/blocked'),
 };
 
 export const paymentsAPI = {
-  plans: () => api.get('/payments/plans'),
   subscribe: (data) => api.post('/payments/subscribe', data),
-  mySubscription: () => api.get('/payments/subscription'),
+  boost: (data) => api.post('/payments/boost', data),
+  history: () => api.get('/payments/history'),
+  cancel: () => api.post('/payments/cancel'),
 };
 
 export const verificationAPI = {
@@ -120,10 +130,13 @@ export const reportsAPI = {
 
 export const adminAPI = {
   stats: () => api.get('/admin/stats'),
-  users: (page) => api.get('/admin/users', { params: { page } }),
-  banUser: (id, reason) => api.put(`/admin/users/${id}/ban`, { reason }),
-  reports: () => api.get('/admin/reports'),
-  resolveReport: (id, action) => api.put(`/admin/reports/${id}/resolve`, { action }),
+  users: (params) => api.get('/admin/users', { params }),
+  banUser: (id, data) => api.put(`/admin/users/${id}/ban`, data),
+  reports: (params) => api.get('/admin/reports', { params }),
+  resolveReport: (id, data) => api.put(`/admin/reports/${id}/resolve`, data),
+  listings: (params) => api.get('/admin/listings', { params }),
+  deleteListing: (id) => api.delete(`/admin/listings/${id}`),
+  revenue: () => api.get('/admin/revenue'),
 };
 
 export default api;

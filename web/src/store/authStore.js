@@ -35,7 +35,7 @@ export const useAuthStore = create((set, get) => ({
       set({ isLoading: false });
       return {
         success: false,
-        error: error.response?.data?.message || 'Error al iniciar sesion',
+        error: error.response?.data?.detail || 'Error al iniciar sesion',
       };
     }
   },
@@ -54,7 +54,7 @@ export const useAuthStore = create((set, get) => ({
       set({ isLoading: false });
       return {
         success: false,
-        error: error.response?.data?.message || 'Error al registrarse',
+        error: error.response?.data?.detail || 'Error al registrarse',
       };
     }
   },

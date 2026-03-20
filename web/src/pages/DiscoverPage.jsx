@@ -189,7 +189,7 @@ export default function DiscoverPage() {
     });
 
     setTimeout(async () => {
-      const result = await swipe(listing._id, direction);
+      const result = await swipe(listing.id, direction);
       if (!result.success) {
         toast.error(result.error);
       } else if (direction === 'right') {
@@ -214,7 +214,7 @@ export default function DiscoverPage() {
     });
 
     setTimeout(async () => {
-      const result = await swipe(listing._id, 'super');
+      const result = await swipe(listing.id, 'up');
       if (!result.success) {
         toast.error(result.error);
       } else {
@@ -328,13 +328,13 @@ export default function DiscoverPage() {
             const listing = visibleCards[i];
             if (!listing) return null;
             const photos = listing.photos || ['https://placehold.co/400x500/E8442A/white?text=CuartoYa'];
-            const idx = getPhotoIndex(listing._id);
+            const idx = getPhotoIndex(listing.id);
             const isTop = i === 0;
-            const isSaved = savedIds.has(listing._id);
+            const isSaved = savedIds.has(listing.id);
 
             return (
               <animated.div
-                key={listing._id}
+                key={listing.id}
                 className="absolute inset-0 will-change-transform"
                 style={{
                   zIndex: visibleCards.length - i,
@@ -376,13 +376,13 @@ export default function DiscoverPage() {
                     {isTop && photos.length > 1 && (
                       <>
                         <button
-                          onClick={(e) => { e.stopPropagation(); prevPhoto(listing._id, photos.length); }}
+                          onClick={(e) => { e.stopPropagation(); prevPhoto(listing.id, photos.length); }}
                           className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/50 z-20"
                         >
                           <ChevronLeft className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); nextPhoto(listing._id, photos.length); }}
+                          onClick={(e) => { e.stopPropagation(); nextPhoto(listing.id, photos.length); }}
                           className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/50 z-20"
                         >
                           <ChevronRight className="w-5 h-5" />
@@ -394,11 +394,11 @@ export default function DiscoverPage() {
                     {isTop && (
                       <div className="absolute top-3 right-3 flex gap-2 z-20">
                         <button
-                          onClick={(e) => handleSave(e, listing._id)}
-                          disabled={savingId === listing._id}
+                          onClick={(e) => handleSave(e, listing.id)}
+                          disabled={savingId === listing.id}
                           className="w-9 h-9 bg-black/30 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors"
                         >
-                          {savingId === listing._id ? (
+                          {savingId === listing.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-white' : ''}`} />
@@ -408,13 +408,13 @@ export default function DiscoverPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenCardMenu(openCardMenu === listing._id ? null : listing._id);
+                              setOpenCardMenu(openCardMenu === listing.id ? null : listing.id);
                             }}
                             className="w-9 h-9 bg-black/30 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-colors"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openCardMenu === listing._id && (
+                          {openCardMenu === listing.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenCardMenu(null)} />
                               <div className="absolute right-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-20 w-48">
@@ -422,7 +422,7 @@ export default function DiscoverPage() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setOpenCardMenu(null);
-                                    setReportModal({ open: true, id: listing._id });
+                                    setReportModal({ open: true, id: listing.id });
                                   }}
                                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                 >
@@ -461,7 +461,7 @@ export default function DiscoverPage() {
                       <div className="flex items-end justify-between">
                         <div className="flex-1">
                           <Link
-                            to={`/listings/${listing._id}`}
+                            to={`/listings/${listing.id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="text-white text-xl font-bold hover:underline leading-tight"
                           >

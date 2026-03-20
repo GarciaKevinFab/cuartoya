@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { adminAPI, listingsAPI } from '../services/api';
+import { adminAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard,
@@ -64,18 +64,21 @@ export default function AdminPage() {
           break;
         }
         case 'users': {
-          const { data } = await adminAPI.users(usersPage);
-          setUsers(data.users || data || []);
+          // Backend espera { page, per_page, search, role }
+          const { data } = await adminAPI.users({ page: usersPage });
+          setUsers(data.users || []);
           break;
         }
         case 'reports': {
+          // Backend retorna List[AdminReportResponse] directamente
           const { data } = await adminAPI.reports();
-          setReports(data.reports || data || []);
+          setReports(Array.isArray(data) ? data : (data.reports || []));
           break;
         }
         case 'listings': {
-          const { data } = await listingsAPI.feed({ limit: 50 });
-          setListings(data.listings || data || []);
+          // Usar endpoint admin para listar publicaciones
+          const { data } = await adminAPI.listings({ per_page: 50 });
+          setListings(Array.isArray(data) ? data : (data.listings || []));
           break;
         }
       }
@@ -88,13 +91,14 @@ export default function AdminPage() {
 
   const handleBanUser = async (userId, userName, isBanned) => {
     if (isBanned) {
+      // Desbanear: enviar { banned: false }
       setActionLoading(userId);
       try {
-        await adminAPI.banUser(userId, '');
+        await adminAPI.banUser(userId, { banned: false });
         setUsers((prev) =>
-          prev.map((u) => (u._id === userId ? { ...u, banned: false } : u))
+          prev.map((u) => (u.id === userId ? { ...u, is_banned: false, is_active: true } : u))
         );
-        toast.success(`Usuario desbaneado`);
+        toast.success('Usuario desbaneado');
       } catch {
         toast.error('Error al desbanear usuario');
       } finally {
@@ -108,11 +112,12 @@ export default function AdminPage() {
 
     setActionLoading(userId);
     try {
-      await adminAPI.banUser(userId, reason);
+      // Banear: enviar { banned: true, reason: string }
+      await adminAPI.banUser(userId, { banned: true, reason });
       setUsers((prev) =>
-        prev.map((u) => (u._id === userId ? { ...u, banned: true } : u))
+        prev.map((u) => (u.id === userId ? { ...u, is_banned: true, is_active: false } : u))
       );
-      toast.success(`Usuario baneado`);
+      toast.success('Usuario baneado');
     } catch {
       toast.error('Error al banear usuario');
     } finally {
@@ -123,10 +128,12 @@ export default function AdminPage() {
   const handleResolveReport = async (reportId, action) => {
     setActionLoading(reportId);
     try {
-      await adminAPI.resolveReport(reportId, action);
+      // Backend espera { status: 'resolved'|'dismissed', admin_notes?: string }
+      const statusMap = { resolve: 'resolved', dismiss: 'dismissed' };
+      await adminAPI.resolveReport(reportId, { status: statusMap[action] || action });
       setReports((prev) =>
         prev.map((r) =>
-          r._id === reportId ? { ...r, status: action === 'resolve' ? 'resolved' : 'dismissed' } : r
+          r.id === reportId ? { ...r, status: statusMap[action] || action } : r
         )
       );
       toast.success(action === 'resolve' ? 'Reporte resuelto' : 'Reporte descartado');
@@ -141,8 +148,8 @@ export default function AdminPage() {
     if (!confirm('Seguro que quieres eliminar esta publicacion?')) return;
     setActionLoading(listingId);
     try {
-      await listingsAPI.delete(listingId);
-      setListings((prev) => prev.filter((l) => l._id !== listingId));
+      await adminAPI.deleteListing(listingId);
+      setListings((prev) => prev.filter((l) => l.id !== listingId));
       toast.success('Publicacion eliminada');
     } catch {
       toast.error('Error al eliminar publicacion');
@@ -154,19 +161,20 @@ export default function AdminPage() {
   const filteredUsers = searchQuery
     ? users.filter(
         (u) =>
-          u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           u.email?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : users;
 
   if (user?.role !== 'admin') return null;
 
+  // Backend GlobalStats retorna campos en snake_case
   const statCards = stats
     ? [
-        { label: 'Usuarios', value: stats.totalUsers || 0, icon: Users, color: 'text-blue-500 bg-blue-50' },
-        { label: 'Publicaciones', value: stats.totalListings || 0, icon: Building2, color: 'text-green-500 bg-green-50' },
-        { label: 'Matches', value: stats.totalMatches || 0, icon: Handshake, color: 'text-purple-500 bg-purple-50' },
-        { label: 'Ingresos', value: `S/${stats.revenue || 0}`, icon: DollarSign, color: 'text-amber-500 bg-amber-50' },
+        { label: 'Usuarios', value: stats.total_users || 0, icon: Users, color: 'text-blue-500 bg-blue-50' },
+        { label: 'Publicaciones', value: stats.total_listings || 0, icon: Building2, color: 'text-green-500 bg-green-50' },
+        { label: 'Matches', value: stats.total_matches || 0, icon: Handshake, color: 'text-purple-500 bg-purple-50' },
+        { label: 'Ingresos', value: `S/${stats.total_revenue || 0}`, icon: DollarSign, color: 'text-amber-500 bg-amber-50' },
       ]
     : [];
 
@@ -254,28 +262,21 @@ export default function AdminPage() {
                     ))}
                   </div>
 
-                  {stats?.recentActivity && stats.recentActivity.length > 0 && (
-                    <div className="card p-5">
-                      <h3 className="font-semibold text-gray-900 mb-4">Actividad reciente</h3>
-                      <div className="space-y-3">
-                        {stats.recentActivity.map((activity, i) => (
-                          <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                            <div className="w-8 h-8 bg-primary-light rounded-lg flex items-center justify-center">
-                              <UserCheck className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-700">
-                                {activity.description || activity.message}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                {activity.time || activity.createdAt}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  {/* Estadisticas adicionales */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="card p-5 text-center">
+                      <p className="text-lg font-bold text-gray-900">{stats?.active_listings || 0}</p>
+                      <p className="text-sm text-gray-500">Publicaciones activas</p>
                     </div>
-                  )}
+                    <div className="card p-5 text-center">
+                      <p className="text-lg font-bold text-gray-900">{stats?.active_subscriptions || 0}</p>
+                      <p className="text-sm text-gray-500">Suscripciones activas</p>
+                    </div>
+                    <div className="card p-5 text-center">
+                      <p className="text-lg font-bold text-amber-600">{stats?.pending_reports || 0}</p>
+                      <p className="text-sm text-gray-500">Reportes pendientes</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -313,17 +314,13 @@ export default function AdminPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                           {filteredUsers.map((u) => (
-                            <tr key={u._id} className="hover:bg-gray-50">
+                            <tr key={u.id} className="hover:bg-gray-50">
                               <td className="px-5 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center shrink-0">
-                                    {u.avatar ? (
-                                      <img src={u.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                    ) : (
-                                      <Users className="w-4 h-4 text-primary" />
-                                    )}
+                                    <Users className="w-4 h-4 text-primary" />
                                   </div>
-                                  <span className="text-sm font-medium text-gray-900">{u.name}</span>
+                                  <span className="text-sm font-medium text-gray-900">{u.full_name}</span>
                                 </div>
                               </td>
                               <td className="px-5 py-4 text-sm text-gray-500">{u.email}</td>
@@ -338,30 +335,30 @@ export default function AdminPage() {
                               </td>
                               <td className="px-5 py-4">
                                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                  u.banned ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                  u.is_banned ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
                                 }`}>
-                                  {u.banned ? 'Baneado' : 'Activo'}
+                                  {u.is_banned ? 'Baneado' : 'Activo'}
                                 </span>
                               </td>
                               <td className="px-5 py-4 text-right">
                                 {u.role !== 'admin' && (
                                   <button
-                                    onClick={() => handleBanUser(u._id, u.name, u.banned)}
-                                    disabled={actionLoading === u._id}
+                                    onClick={() => handleBanUser(u.id, u.full_name, u.is_banned)}
+                                    disabled={actionLoading === u.id}
                                     className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                                      u.banned
+                                      u.is_banned
                                         ? 'bg-green-50 text-green-600 hover:bg-green-100'
                                         : 'bg-red-50 text-red-600 hover:bg-red-100'
                                     }`}
                                   >
-                                    {actionLoading === u._id ? (
+                                    {actionLoading === u.id ? (
                                       <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : u.banned ? (
+                                    ) : u.is_banned ? (
                                       <UserCheck className="w-3 h-3" />
                                     ) : (
                                       <Ban className="w-3 h-3" />
                                     )}
-                                    {u.banned ? 'Desbanear' : 'Banear'}
+                                    {u.is_banned ? 'Desbanear' : 'Banear'}
                                   </button>
                                 )}
                               </td>
@@ -424,19 +421,19 @@ export default function AdminPage() {
                           <tr className="bg-gray-50 border-b border-gray-100">
                             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Reportado por</th>
                             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Motivo</th>
-                            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+                            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Reportado</th>
                             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
                             <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Acciones</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                           {reports.map((r) => (
-                            <tr key={r._id} className="hover:bg-gray-50">
-                              <td className="px-5 py-4 text-sm text-gray-900">{r.reporter?.name || r.reporterName || 'Usuario'}</td>
+                            <tr key={r.id} className="hover:bg-gray-50">
+                              <td className="px-5 py-4 text-sm text-gray-900">{r.reporter_name || 'Usuario'}</td>
                               <td className="px-5 py-4 text-sm text-gray-600">{r.reason}</td>
                               <td className="px-5 py-4">
                                 <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                                  {r.targetType || 'listing'}
+                                  {r.reported_user_name || r.reported_listing_title || '-'}
                                 </span>
                               </td>
                               <td className="px-5 py-4">
@@ -453,11 +450,11 @@ export default function AdminPage() {
                                 {(!r.status || r.status === 'pending') && (
                                   <div className="flex items-center justify-end gap-2">
                                     <button
-                                      onClick={() => handleResolveReport(r._id, 'resolve')}
-                                      disabled={actionLoading === r._id}
+                                      onClick={() => handleResolveReport(r.id, 'resolve')}
+                                      disabled={actionLoading === r.id}
                                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                                     >
-                                      {actionLoading === r._id ? (
+                                      {actionLoading === r.id ? (
                                         <Loader2 className="w-3 h-3 animate-spin" />
                                       ) : (
                                         <CheckCircle2 className="w-3 h-3" />
@@ -465,8 +462,8 @@ export default function AdminPage() {
                                       Resolver
                                     </button>
                                     <button
-                                      onClick={() => handleResolveReport(r._id, 'dismiss')}
-                                      disabled={actionLoading === r._id}
+                                      onClick={() => handleResolveReport(r.id, 'dismiss')}
+                                      disabled={actionLoading === r.id}
                                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                     >
                                       <XCircle className="w-3 h-3" />
@@ -518,7 +515,7 @@ export default function AdminPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                           {listings.map((l) => (
-                            <tr key={l._id} className="hover:bg-gray-50">
+                            <tr key={l.id} className="hover:bg-gray-50">
                               <td className="px-5 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-12 h-9 rounded-lg overflow-hidden bg-gray-100 shrink-0">
@@ -535,22 +532,22 @@ export default function AdminPage() {
                               </td>
                               <td className="px-5 py-4 text-sm font-semibold text-gray-900">S/{l.price}</td>
                               <td className="px-5 py-4 text-sm text-gray-500">{l.district || '-'}</td>
-                              <td className="px-5 py-4 text-sm text-gray-500">{l.owner?.name || '-'}</td>
+                              <td className="px-5 py-4 text-sm text-gray-500">{l.owner_name || '-'}</td>
                               <td className="px-5 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <button
-                                    onClick={() => navigate(`/listings/${l._id}`)}
+                                    onClick={() => navigate(`/listings/${l.id}`)}
                                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                   >
                                     <Eye className="w-3 h-3" />
                                     Ver
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteListing(l._id)}
-                                    disabled={actionLoading === l._id}
+                                    onClick={() => handleDeleteListing(l.id)}
+                                    disabled={actionLoading === l.id}
                                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                                   >
-                                    {actionLoading === l._id ? (
+                                    {actionLoading === l.id ? (
                                       <Loader2 className="w-3 h-3 animate-spin" />
                                     ) : (
                                       <Trash2 className="w-3 h-3" />

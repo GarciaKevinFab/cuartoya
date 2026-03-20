@@ -27,8 +27,9 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (password.length < 6) {
-      toast.error('La contrasena debe tener al menos 6 caracteres');
+    // Backend requiere minimo 8 caracteres
+    if (password.length < 8) {
+      toast.error('La contrasena debe tener al menos 8 caracteres');
       return;
     }
 
@@ -39,12 +40,13 @@ export default function ResetPasswordPage() {
 
     setIsLoading(true);
     try {
-      await api.post('/auth/reset-password', { token, password });
+      // Backend ResetPasswordRequest espera { token, new_password }
+      await api.post('/auth/reset-password', { token, new_password: password });
       setIsSuccess(true);
       toast.success('Contrasena actualizada exitosamente');
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al restablecer contrasena. El enlace puede haber expirado.');
+      toast.error(err.response?.data?.detail || 'Error al restablecer contrasena. El enlace puede haber expirado.');
     } finally {
       setIsLoading(false);
     }
@@ -119,10 +121,10 @@ export default function ResetPasswordPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Minimo 6 caracteres"
+                      placeholder="Minimo 8 caracteres"
                       className="input-field pl-12 pr-12"
                       required
-                      minLength={6}
+                      minLength={8}
                     />
                     <button
                       type="button"

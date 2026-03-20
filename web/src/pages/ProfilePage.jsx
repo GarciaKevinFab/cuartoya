@@ -38,21 +38,21 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
   const [editData, setEditData] = useState({
-    name: user?.name || '',
+    full_name: user?.full_name || '',
     phone: user?.phone || '',
-    district: user?.district || '',
   });
   const fileInputRef = useRef(null);
 
-  const isVerified = user?.verified || user?.verificationStatus === 'verified';
+  const isVerified = user?.is_verified;
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
     try {
+      // Backend retorna UserResponse con profile_photo
       const { data } = await authAPI.uploadAvatar(file);
-      updateUser({ avatar: data.avatar || data.url });
+      updateUser({ profile_photo: data.profile_photo });
       toast.success('Foto actualizada');
     } catch {
       toast.error('Error al subir foto');
@@ -89,11 +89,13 @@ export default function ProfilePage() {
     }
   };
 
+  // Estadisticas del perfil - se cargan via listingsAPI.stats() -> UserStats
+  // Backend retorna: { likes_given, matches_count, listings_count, views_total }
   const stats = [
-    { icon: Eye, label: 'Vistas', value: user?.stats?.views || 0 },
-    { icon: Heart, label: 'Likes', value: user?.stats?.likes || 0 },
-    { icon: MessageCircle, label: 'Matches', value: user?.stats?.matches || 0 },
-    { icon: Home, label: 'Cuartos', value: user?.stats?.listings || 0 },
+    { icon: Eye, label: 'Vistas', value: user?.stats?.views_total || 0 },
+    { icon: Heart, label: 'Likes', value: user?.stats?.likes_given || 0 },
+    { icon: MessageCircle, label: 'Matches', value: user?.stats?.matches_count || 0 },
+    { icon: Home, label: 'Cuartos', value: user?.stats?.listings_count || 0 },
   ];
 
   const menuItems = [
@@ -154,8 +156,8 @@ export default function ProfilePage() {
           {/* Avatar */}
           <div className="relative">
             <div className="w-20 h-20 rounded-full bg-primary-light overflow-hidden">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              {user?.profile_photo ? (
+                <img src={user.profile_photo} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <User className="w-10 h-10 text-primary" />
@@ -187,13 +189,13 @@ export default function ProfilePage() {
             {isEditing ? (
               <input
                 type="text"
-                value={editData.name}
-                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                value={editData.full_name}
+                onChange={(e) => setEditData({ ...editData, full_name: e.target.value })}
                 className="input-field py-1.5 text-lg font-bold"
               />
             ) : (
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-gray-900">{user?.name || 'Usuario'}</h2>
+                <h2 className="text-xl font-bold text-gray-900">{user?.full_name || 'Usuario'}</h2>
                 {isVerified && (
                   <ShieldCheck className="w-5 h-5 text-blue-500" />
                 )}
@@ -254,17 +256,7 @@ export default function ProfilePage() {
                 type="tel"
                 value={editData.phone}
                 onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                placeholder="Telefono"
-                className="input-field pl-10 py-2"
-              />
-            </div>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={editData.district}
-                onChange={(e) => setEditData({ ...editData, district: e.target.value })}
-                placeholder="Distrito"
+                placeholder="Telefono (+51XXXXXXXXX)"
                 className="input-field pl-10 py-2"
               />
             </div>

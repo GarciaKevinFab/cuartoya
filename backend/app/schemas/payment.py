@@ -5,13 +5,13 @@ from datetime import datetime
 
 class SubscribeRequest(BaseModel):
     plan: str  # pro, agency
-    culqi_token: str
+    culqi_token: Optional[str] = ""  # Opcional en modo dev
 
 
 class BoostRequest(BaseModel):
     listing_id: str
     days: int  # 7, 15, 30
-    culqi_token: str
+    culqi_token: Optional[str] = ""  # Opcional en modo dev
 
 
 class PaymentResponse(BaseModel):

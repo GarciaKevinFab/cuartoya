@@ -67,7 +67,8 @@ export default function MyListingsPage() {
   });
 
   const listings = listingsData?.listings || listingsData || [];
-  const pending = pendingData?.swipes || pendingData || [];
+  // Backend retorna List[PendingSwipeResponse] directamente
+  const pending = Array.isArray(pendingData) ? pendingData : (pendingData?.swipes || []);
   const stats = statsData || {};
 
   const tabs = [
@@ -140,7 +141,7 @@ export default function MyListingsPage() {
           ) : (
             <div className="space-y-4">
               {listings.map((listing) => (
-                <div key={listing._id} className="card p-4 flex gap-4">
+                <div key={listing.id} className="card p-4 flex gap-4">
                   {/* Photo */}
                   <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-gray-100 shrink-0">
                     {listing.photos?.[0] ? (
@@ -157,7 +158,7 @@ export default function MyListingsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <Link
-                          to={`/listings/${listing._id}`}
+                          to={`/listings/${listing.id}`}
                           className="font-bold text-gray-900 hover:text-primary transition-colors"
                         >
                           {listing.title}
@@ -168,8 +169,8 @@ export default function MyListingsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className={`badge ${listing.active !== false ? 'bg-green-50 text-success' : 'bg-gray-100 text-gray-500'}`}>
-                          {listing.active !== false ? 'Activo' : 'Pausado'}
+                        <span className={`badge ${listing.is_active !== false ? 'bg-green-50 text-success' : 'bg-gray-100 text-gray-500'}`}>
+                          {listing.is_active !== false ? 'Activo' : 'Pausado'}
                         </span>
                       </div>
                     </div>
@@ -182,20 +183,14 @@ export default function MyListingsPage() {
                     {/* Metrics */}
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" /> {listing.views || 0} vistas
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-3.5 h-3.5" /> {listing.likes || 0} likes
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MessageCircle className="w-3.5 h-3.5" /> {listing.matches || 0} matches
+                        <Eye className="w-3.5 h-3.5" /> {listing.view_count || 0} vistas
                       </span>
                     </div>
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 mt-3">
                       <Link
-                        to={`/listings/${listing._id}`}
+                        to={`/listings/${listing.id}`}
                         className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -205,7 +200,7 @@ export default function MyListingsPage() {
                       <button
                         onClick={() => {
                           if (window.confirm('Seguro que quieres eliminar este cuarto?')) {
-                            deleteMutation.mutate(listing._id);
+                            deleteMutation.mutate(listing.id);
                           }
                         }}
                         className="text-xs text-red-500 font-medium hover:underline flex items-center gap-1"
@@ -242,11 +237,11 @@ export default function MyListingsPage() {
           ) : (
             <div className="space-y-3">
               {pending.map((req) => (
-                <div key={req._id} className="card p-4 flex items-center gap-4">
-                  {/* User avatar */}
+                <div key={req.id} className="card p-4 flex items-center gap-4">
+                  {/* Avatar del usuario */}
                   <div className="w-12 h-12 rounded-full bg-primary-light flex items-center justify-center shrink-0">
-                    {req.user?.avatar ? (
-                      <img src={req.user.avatar} alt="" className="w-12 h-12 rounded-full object-cover" />
+                    {req.swiper_photo ? (
+                      <img src={req.swiper_photo} alt="" className="w-12 h-12 rounded-full object-cover" />
                     ) : (
                       <Users className="w-5 h-5 text-primary" />
                     )}
@@ -255,28 +250,28 @@ export default function MyListingsPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-sm">
-                      {req.user?.name || 'Usuario'}
+                      {req.swiper_name || 'Usuario'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Interesado en <span className="font-medium text-gray-700">{req.listing?.title || 'tu cuarto'}</span>
+                      Interesado en <span className="font-medium text-gray-700">{req.listing_title || 'tu cuarto'}</span>
                     </p>
                     <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                       <Clock className="w-3 h-3" />
-                      {dayjs(req.createdAt).fromNow()}
+                      {dayjs(req.created_at).fromNow()}
                     </p>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => respondMutation.mutate({ id: req._id, action: 'reject' })}
+                      onClick={() => respondMutation.mutate({ id: req.id, action: 'reject' })}
                       disabled={respondMutation.isPending}
                       className="w-10 h-10 rounded-full border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-50 transition-colors"
                     >
                       <UserX className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => respondMutation.mutate({ id: req._id, action: 'accept' })}
+                      onClick={() => respondMutation.mutate({ id: req.id, action: 'accept' })}
                       disabled={respondMutation.isPending}
                       className="w-10 h-10 rounded-full bg-success flex items-center justify-center text-white hover:bg-green-700 transition-colors"
                     >
@@ -305,29 +300,29 @@ export default function MyListingsPage() {
                   <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-2">
                     <Eye className="w-5 h-5 text-blue-500" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalViews || 0}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.views_total || 0}</p>
                   <p className="text-xs text-gray-500">Vistas totales</p>
                 </div>
                 <div className="card p-4 text-center">
                   <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-2">
                     <Heart className="w-5 h-5 text-red-500" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalLikes || 0}</p>
-                  <p className="text-xs text-gray-500">Likes totales</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.likes_given || 0}</p>
+                  <p className="text-xs text-gray-500">Likes dados</p>
                 </div>
                 <div className="card p-4 text-center">
                   <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center mx-auto mb-2">
                     <MessageCircle className="w-5 h-5 text-success" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalMatches || 0}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.matches_count || 0}</p>
                   <p className="text-xs text-gray-500">Matches</p>
                 </div>
                 <div className="card p-4 text-center">
                   <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <TrendingUp className="w-5 h-5 text-purple-500" />
+                    <Home className="w-5 h-5 text-purple-500" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.conversionRate || 0}%</p>
-                  <p className="text-xs text-gray-500">Conversion</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.listings_count || 0}</p>
+                  <p className="text-xs text-gray-500">Publicaciones</p>
                 </div>
               </div>
 
@@ -339,7 +334,7 @@ export default function MyListingsPage() {
                   </div>
                   <div className="divide-y divide-gray-50">
                     {stats.perListing.map((item) => (
-                      <div key={item._id} className="p-4 flex items-center gap-4">
+                      <div key={item.id} className="p-4 flex items-center gap-4">
                         <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                           {item.photo ? (
                             <img src={item.photo} alt="" className="w-full h-full object-cover" />

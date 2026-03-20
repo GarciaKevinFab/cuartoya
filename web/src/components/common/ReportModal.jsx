@@ -34,18 +34,20 @@ export default function ReportModal({ isOpen, onClose, targetType, targetId }) {
 
     setIsSubmitting(true);
     try {
-      await reportsAPI.create({
-        targetType,
-        targetId,
-        reason,
-        description,
-      });
+      // Backend ReportCreate espera: { reported_user_id?, reported_listing_id?, reason, description? }
+      const reportData = { reason, description: description || undefined };
+      if (targetType === 'listing') {
+        reportData.reported_listing_id = targetId;
+      } else if (targetType === 'user') {
+        reportData.reported_user_id = targetId;
+      }
+      await reportsAPI.create(reportData);
       toast.success('Reporte enviado. Revisaremos tu denuncia pronto.');
       onClose();
       setReason('');
       setDescription('');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al enviar reporte');
+      toast.error(err.response?.data?.detail || 'Error al enviar reporte');
     } finally {
       setIsSubmitting(false);
     }

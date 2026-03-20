@@ -26,11 +26,12 @@ export default function VerificationPage() {
   const checkStatus = async () => {
     try {
       const { data } = await verificationAPI.getStatus();
-      if (data.verified) {
+      // Backend VerificationStatusResponse retorna: { is_verified, dni, full_name }
+      if (data.is_verified) {
         setIsVerified(true);
         setVerificationResult({
           success: true,
-          name: data.name || user?.name,
+          name: data.full_name || user?.full_name,
         });
       }
     } catch {
@@ -52,16 +53,25 @@ export default function VerificationPage() {
     setVerificationResult(null);
 
     try {
+      // Backend DNIVerifyResponse retorna: { verified, message, reniec_name, dni }
       const { data } = await verificationAPI.verifyDni(dni);
-      setVerificationResult({
-        success: true,
-        name: data.name || data.fullName,
-      });
-      setIsVerified(true);
-      updateUser({ verified: true, verifiedName: data.name || data.fullName });
-      toast.success('Identidad verificada exitosamente');
+      if (data.verified) {
+        setVerificationResult({
+          success: true,
+          name: data.reniec_name,
+        });
+        setIsVerified(true);
+        updateUser({ is_verified: true });
+        toast.success(data.message || 'Identidad verificada exitosamente');
+      } else {
+        setVerificationResult({
+          success: false,
+          error: data.message || 'No se pudo verificar tu identidad',
+        });
+        toast.error(data.message || 'No se pudo verificar tu identidad');
+      }
     } catch (err) {
-      const message = err.response?.data?.message || 'Error al verificar DNI';
+      const message = err.response?.data?.detail || 'Error al verificar DNI';
       setVerificationResult({ success: false, error: message });
       toast.error(message);
     } finally {

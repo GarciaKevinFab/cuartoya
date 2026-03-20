@@ -36,9 +36,10 @@ export default function FavoritesPage() {
     setRemovingId(listingId);
     try {
       await favoritesAPI.remove(listingId);
+      // Backend FavoriteResponse: { id, listing: ListingResponse, created_at }
       setFavorites((prev) => prev.filter((f) => {
-        const id = f._id || f.listing?._id || f.listingId;
-        return id !== listingId;
+        const fListingId = f.listing?.id || f.id;
+        return fListingId !== listingId;
       }));
       toast.success('Eliminado de favoritos');
     } catch {
@@ -88,7 +89,7 @@ export default function FavoritesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {favorites.map((item) => {
             const listing = item.listing || item;
-            const listingId = listing._id || item.listingId;
+            const listingId = listing.id;
             const photos = listing.photos?.length > 0
               ? listing.photos
               : ['https://placehold.co/400x300/E8442A/white?text=CuartoYa'];

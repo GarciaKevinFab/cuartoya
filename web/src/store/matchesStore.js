@@ -13,8 +13,10 @@ export const useMatchesStore = create((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await matchesAPI.list();
-      const matchesList = data.matches || data || [];
-      const unread = matchesList.filter((m) => m.unread).length;
+      // Backend retorna un array directamente (List[MatchResponse])
+      const matchesList = Array.isArray(data) ? data : (data.matches || []);
+      // Backend retorna unread_count (numero), no unread (booleano)
+      const unread = matchesList.reduce((sum, m) => sum + (m.unread_count || 0), 0);
       set({ matches: matchesList, unreadCount: unread, isLoading: false });
     } catch {
       set({ isLoading: false });
@@ -25,7 +27,6 @@ export const useMatchesStore = create((set, get) => ({
     set({ activeMatchId: matchId, messages: [] });
     if (matchId) {
       get().fetchMessages(matchId);
-      get().markAsRead(matchId);
     }
   },
 
@@ -33,6 +34,7 @@ export const useMatchesStore = create((set, get) => ({
     set({ isLoadingMessages: true });
     try {
       const { data } = await matchesAPI.messages(matchId);
+      // Backend retorna MessageList con { messages: [...], has_more: bool }
       set({ messages: data.messages || data || [], isLoadingMessages: false });
     } catch {
       set({ isLoadingMessages: false });
@@ -44,57 +46,67 @@ export const useMatchesStore = create((set, get) => ({
     if (!activeMatchId || !text.trim()) return;
 
     const tempMsg = {
-      _id: `temp-${Date.now()}`,
-      text: text.trim(),
-      sender: 'me',
-      createdAt: new Date().toISOString(),
+      id: `temp-${Date.now()}`,
+      content: text.trim(),
+      sender_id: 'me',
+      created_at: new Date().toISOString(),
       pending: true,
     };
 
     set({ messages: [...messages, tempMsg] });
 
     try {
-      const { data } = await matchesAPI.sendMessage(activeMatchId, { text: text.trim() });
+      // Backend MessageCreate espera { content: string }
+      const { data } = await matchesAPI.sendMessage(activeMatchId, { content: text.trim() });
       set({
         messages: get().messages.map((m) =>
-          m._id === tempMsg._id ? { ...data, pending: false } : m
+          m.id === tempMsg.id ? { ...data, pending: false } : m
         ),
       });
     } catch {
       set({
         messages: get().messages.map((m) =>
-          m._id === tempMsg._id ? { ...m, failed: true, pending: false } : m
+          m.id === tempMsg.id ? { ...m, failed: true, pending: false } : m
         ),
       });
     }
   },
 
-  markAsRead: async (matchId) => {
+  markAsRead: async (matchId, messageId) => {
+    if (!messageId) return;
     try {
-      await matchesAPI.markRead(matchId);
+      // Backend espera PUT /matches/{matchId}/messages/{messageId}/read
+      await matchesAPI.markRead(matchId, messageId);
       set({
         matches: get().matches.map((m) =>
-          m._id === matchId ? { ...m, unread: false } : m
+          m.id === matchId ? { ...m, unread_count: 0 } : m
         ),
         unreadCount: Math.max(0, get().unreadCount - 1),
       });
     } catch {
-      /* silently fail */
+      /* fallo silencioso */
     }
   },
 
   addMessage: (message) => {
     const { activeMatchId, messages } = get();
-    if (message.matchId === activeMatchId) {
+    // El WebSocket envia match_id, no matchId
+    const msgMatchId = message.match_id || message.matchId;
+    if (msgMatchId === activeMatchId) {
       set({ messages: [...messages, message] });
     }
     set({
       matches: get().matches.map((m) =>
-        m._id === message.matchId
-          ? { ...m, lastMessage: message, unread: message.matchId !== activeMatchId }
+        m.id === msgMatchId
+          ? {
+              ...m,
+              last_message: message.content,
+              last_message_at: message.created_at,
+              unread_count: msgMatchId !== activeMatchId ? (m.unread_count || 0) + 1 : 0,
+            }
           : m
       ),
-      unreadCount: message.matchId !== activeMatchId
+      unreadCount: msgMatchId !== activeMatchId
         ? get().unreadCount + 1
         : get().unreadCount,
     });

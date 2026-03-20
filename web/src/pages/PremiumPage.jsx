@@ -101,7 +101,7 @@ export default function PremiumPage() {
         toast.success('Plan actualizado exitosamente');
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al procesar el pago');
+      toast.error(err.response?.data?.detail || 'Error al procesar el pago');
     } finally {
       setIsLoading(false);
       setSelectedPlan(null);

@@ -161,7 +161,7 @@ export default function NewListingPage() {
       toast.success('Cuarto publicado exitosamente');
       navigate('/my-listings');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al publicar');
+      toast.error(err.response?.data?.detail || 'Error al publicar');
     } finally {
       setIsSubmitting(false);
     }

@@ -35,9 +35,8 @@ export default function AuthPage() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
+    full_name: '',
     phone: '',
-    district: '',
   });
 
   const { login, register, isLoading } = useAuthStore();
@@ -62,11 +61,15 @@ export default function AuthPage() {
         toast.error(result.error);
       }
     } else {
-      if (!formData.name || !formData.email || !formData.password) {
+      if (!formData.full_name || !formData.email || !formData.password) {
         toast.error('Completa todos los campos obligatorios');
         return;
       }
-      const result = await register({ ...formData, role });
+      // Backend espera phone con formato +51XXXXXXXXX
+      const phone = formData.phone && !formData.phone.startsWith('+51')
+        ? `+51${formData.phone.replace(/\D/g, '')}`
+        : formData.phone;
+      const result = await register({ ...formData, phone, role });
       if (result.success) {
         toast.success('Cuenta creada exitosamente');
         navigate('/');
@@ -172,8 +175,8 @@ export default function AuthPage() {
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  name="name"
-                  value={formData.name}
+                  name="full_name"
+                  value={formData.full_name}
                   onChange={handleChange}
                   placeholder="Nombre completo"
                   className="input-field pl-12"
@@ -231,20 +234,7 @@ export default function AuthPage() {
               </div>
             )}
 
-            {/* District - only for tenants on register */}
-            {!isLogin && role === 'tenant' && (
-              <select
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                className="input-field text-gray-500"
-              >
-                <option value="">Distrito de preferencia</option>
-                {DISTRICTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            )}
+            {/* Distrito no es parte del registro de usuario */}
 
             <button
               type="submit"
@@ -278,7 +268,7 @@ export default function AuthPage() {
               type="button"
               onClick={() => {
                 setIsLogin(!isLogin);
-                setFormData({ email: '', password: '', name: '', phone: '', district: '' });
+                setFormData({ email: '', password: '', full_name: '', phone: '' });
               }}
               className="text-sm text-gray-500 hover:text-primary transition-colors"
             >

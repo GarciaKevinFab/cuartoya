@@ -26,8 +26,8 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(true);
     try {
-      await authAPI.forgotPassword?.({ email }) ||
-        (await import('../services/api').then(m => m.default.post('/auth/forgot-password', { email })));
+      // authAPI.forgotPassword espera { email } como objeto
+      await authAPI.forgotPassword({ email });
       setIsSent(true);
     } catch {
       // Show success anyway to prevent email enumeration

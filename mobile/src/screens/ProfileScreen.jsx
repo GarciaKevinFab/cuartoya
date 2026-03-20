@@ -21,6 +21,13 @@ const MENU_ITEMS = [
     color: '#E8442A',
   },
   {
+    id: 'favorites',
+    icon: 'heart-outline',
+    label: 'Mis Favoritos',
+    screen: 'Favorites',
+    color: '#EF4444',
+  },
+  {
     id: 'premium',
     icon: 'diamond-outline',
     label: 'Planes Premium',
@@ -81,8 +88,8 @@ const PLAN_BADGES = {
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { logout } = useAuthStore();
-  const user = MOCK_USER;
+  const { logout, user: authUser } = useAuthStore();
+  const user = authUser || MOCK_USER;
   const planInfo = PLAN_BADGES[user.plan] || PLAN_BADGES.free;
 
   const handleLogout = () => {
@@ -131,12 +138,20 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
           {user.verified && (
             <View style={styles.verifiedIcon}>
-              <Ionicons name="checkmark-circle" size={24} color="#1D9E75" />
+              <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
             </View>
           )}
         </View>
 
-        <Text style={styles.userName}>{user.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.userName}>{user.name}</Text>
+          {user.verified && (
+            <View style={styles.verifiedInlineBadge}>
+              <Ionicons name="shield-checkmark" size={14} color="#3B82F6" />
+              <Text style={styles.verifiedInlineText}>Verificado</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.userEmail}>{user.email}</Text>
 
         <View style={styles.badgeRow}>
@@ -150,19 +165,39 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Verification CTA */}
+      {!user.verified && (
+        <TouchableOpacity
+          style={styles.verifyCard}
+          onPress={() => navigation.navigate('Verification')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.verifyIconWrap}>
+            <Ionicons name="shield-checkmark" size={24} color="#FFFFFF" />
+          </View>
+          <View style={styles.verifyContent}>
+            <Text style={styles.verifyTitle}>Verificar identidad</Text>
+            <Text style={styles.verifySubtitle}>
+              Verifica tu DNI con RENIEC para generar mas confianza
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
+        </TouchableOpacity>
+      )}
+
       <View style={styles.statsCard}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{user.stats.listings}</Text>
+          <Text style={styles.statNumber}>{user.stats?.listings || 0}</Text>
           <Text style={styles.statLabel}>Publicaciones</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{user.stats.matches}</Text>
+          <Text style={styles.statNumber}>{user.stats?.matches || 0}</Text>
           <Text style={styles.statLabel}>Matches</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{user.stats.likes}</Text>
+          <Text style={styles.statNumber}>{user.stats?.likes || 0}</Text>
           <Text style={styles.statLabel}>Likes</Text>
         </View>
       </View>
@@ -278,11 +313,30 @@ const styles = StyleSheet.create({
     top: 0,
     right: -4,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   userName: {
     fontSize: 22,
     fontWeight: '800',
     color: '#1F2937',
-    marginBottom: 4,
+  },
+  verifiedInlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
+  },
+  verifiedInlineText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3B82F6',
   },
   userEmail: {
     fontSize: 14,
@@ -309,6 +363,39 @@ const styles = StyleSheet.create({
   memberSince: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+  verifyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  verifyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  verifyContent: {
+    flex: 1,
+  },
+  verifyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E40AF',
+    marginBottom: 2,
+  },
+  verifySubtitle: {
+    fontSize: 12,
+    color: '#3B82F6',
   },
   statsCard: {
     flexDirection: 'row',

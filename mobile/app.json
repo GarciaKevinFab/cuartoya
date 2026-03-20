@@ -13,12 +13,13 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.cuartoya.app",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "CuartoYa necesita acceso a tu camara para tomar fotos de tu habitacion.",
-        "NSPhotoLibraryUsageDescription": "CuartoYa necesita acceso a tu galeria para subir fotos de tu habitacion.",
-        "NSLocationWhenInUseUsageDescription": "CuartoYa necesita tu ubicacion para mostrarte cuartos cercanos."
+        "NSCameraUsageDescription": "CuartoYa necesita acceso a tu camara para tomar fotos de habitaciones",
+        "NSPhotoLibraryUsageDescription": "CuartoYa necesita acceso a tus fotos para publicar habitaciones",
+        "NSLocationWhenInUseUsageDescription": "CuartoYa necesita tu ubicacion para mostrarte habitaciones cercanas"
       }
     },
     "android": {

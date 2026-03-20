@@ -7,6 +7,7 @@ const useFeedStore = create((set, get) => ({
   isLoading: false,
   hasMore: true,
   filters: {
+    city: null,
     district: null,
     minPrice: null,
     maxPrice: null,
@@ -19,7 +20,7 @@ const useFeedStore = create((set, get) => ({
 
   resetFilters: () => {
     set({
-      filters: { district: null, minPrice: null, maxPrice: null, amenities: [] },
+      filters: { city: null, district: null, minPrice: null, maxPrice: null, amenities: [] },
       listings: [],
       currentIndex: 0,
       hasMore: true,
@@ -35,6 +36,7 @@ const useFeedStore = create((set, get) => ({
       const params = {
         offset: listings.length,
         limit: 10,
+        ...(filters.city && { city: filters.city }),
         ...(filters.district && { district: filters.district }),
         ...(filters.minPrice && { minPrice: filters.minPrice }),
         ...(filters.maxPrice && { maxPrice: filters.maxPrice }),

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,11 @@ import {
   FlatList,
   Dimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { favoritesAPI } from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PHOTO_HEIGHT = 280;
@@ -54,6 +56,7 @@ export default function ListingDetailScreen({ route, navigation }) {
   const listing = route?.params?.listing || MOCK_DETAIL;
   const [activePhoto, setActivePhoto] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const flatListRef = useRef(null);
 
   const photos = listing.images && listing.images.length > 0
@@ -78,6 +81,49 @@ export default function ListingDetailScreen({ route, navigation }) {
       setActivePhoto(viewableItems[0].index || 0);
     }
   }).current;
+
+  const handleToggleFavorite = useCallback(async () => {
+    const wasFavorite = isFavorite;
+    setIsFavorite(!wasFavorite);
+    try {
+      if (wasFavorite) {
+        await favoritesAPI.remove(listing.id);
+      } else {
+        await favoritesAPI.add(listing.id);
+      }
+    } catch (err) {
+      setIsFavorite(wasFavorite);
+      console.warn('Error toggling favorite:', err);
+    }
+  }, [isFavorite, listing.id]);
+
+  const handleReport = useCallback(() => {
+    Alert.alert(
+      'Reportar',
+      'Que deseas reportar?',
+      [
+        {
+          text: 'Reportar publicacion',
+          onPress: () =>
+            navigation.navigate('Report', {
+              targetType: 'listing',
+              targetId: listing.id,
+              targetName: listing.title,
+            }),
+        },
+        {
+          text: 'Reportar propietario',
+          onPress: () =>
+            navigation.navigate('Report', {
+              targetType: 'user',
+              targetId: listing.ownerId || listing.id,
+              targetName: listing.ownerName,
+            }),
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  }, [listing, navigation]);
 
   return (
     <View style={styles.container}>
@@ -111,6 +157,19 @@ export default function ListingDetailScreen({ route, navigation }) {
               {activePhoto + 1}/{photos.length}
             </Text>
           </View>
+
+          {/* Favorite button on gallery */}
+          <TouchableOpacity
+            style={styles.galleryFavoriteBtn}
+            onPress={handleToggleFavorite}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={22}
+              color={isFavorite ? '#E8442A' : '#FFFFFF'}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.content}>
@@ -125,8 +184,8 @@ export default function ListingDetailScreen({ route, navigation }) {
             <View style={styles.badges}>
               {listing.ownerVerified && (
                 <View style={styles.verifiedBadge}>
-                  <Ionicons name="shield-checkmark" size={14} color="#1D9E75" />
-                  <Text style={styles.verifiedText}>Verificado</Text>
+                  <Ionicons name="shield-checkmark" size={14} color="#3B82F6" />
+                  <Text style={styles.verifiedBadgeText}>Verificado</Text>
                 </View>
               )}
             </View>
@@ -197,7 +256,9 @@ export default function ListingDetailScreen({ route, navigation }) {
                 <View style={styles.ownerNameRow}>
                   <Text style={styles.ownerName}>{listing.ownerName}</Text>
                   {listing.ownerVerified && (
-                    <Ionicons name="checkmark-circle" size={18} color="#1D9E75" />
+                    <View style={styles.ownerVerifiedBadge}>
+                      <Ionicons name="checkmark-circle" size={18} color="#3B82F6" />
+                    </View>
                   )}
                 </View>
                 <View style={styles.ownerStats}>
@@ -215,6 +276,16 @@ export default function ListingDetailScreen({ route, navigation }) {
               </View>
             </View>
           </View>
+
+          {/* Report button */}
+          <TouchableOpacity
+            style={styles.reportButton}
+            onPress={handleReport}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flag-outline" size={18} color="#EF4444" />
+            <Text style={styles.reportButtonText}>Reportar esta publicacion</Text>
+          </TouchableOpacity>
 
           <View style={{ height: 100 }} />
         </View>
@@ -305,6 +376,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
+  galleryFavoriteBtn: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -342,15 +424,15 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  verifiedText: {
+  verifiedBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1D9E75',
+    color: '#3B82F6',
     marginLeft: 4,
   },
   title: {
@@ -485,6 +567,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
   },
+  ownerVerifiedBadge: {
+    marginLeft: 2,
+  },
   ownerStats: {
     flexDirection: 'row',
     gap: 16,
@@ -498,6 +583,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    gap: 8,
+    marginBottom: 8,
+  },
+  reportButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EF4444',
   },
   floatingBar: {
     position: 'absolute',

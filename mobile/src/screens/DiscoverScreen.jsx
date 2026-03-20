@@ -10,15 +10,28 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ListingSwipeCard from '../components/ListingSwipeCard';
 import useFeedStore from '../store/feedStore';
+import { favoritesAPI } from '../services/api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 const SWIPE_OUT_DURATION = 300;
+
+const CITIES = [
+  'Todas',
+  'Huancayo',
+  'Tarma',
+  'La Oroya',
+  'Junin',
+  'Jauja',
+  'Concepcion',
+  'Chupaca',
+];
 
 const MOCK_LISTINGS = [
   {
@@ -26,6 +39,7 @@ const MOCK_LISTINGS = [
     title: 'Habitacion amoblada cerca a la UNCP',
     price: 350,
     district: 'El Tambo',
+    city: 'Huancayo',
     images: [],
     amenities: ['wifi', 'furnished', 'bathroom', 'kitchen'],
     verified: true,
@@ -38,6 +52,7 @@ const MOCK_LISTINGS = [
     title: 'Cuarto amplio con bano privado',
     price: 420,
     district: 'Huancayo Centro',
+    city: 'Huancayo',
     images: [],
     amenities: ['wifi', 'bathroom', 'security', 'laundry'],
     verified: true,
@@ -50,6 +65,7 @@ const MOCK_LISTINGS = [
     title: 'Mini departamento para estudiante',
     price: 500,
     district: 'San Carlos',
+    city: 'Huancayo',
     images: [],
     amenities: ['wifi', 'furnished', 'bathroom', 'parking'],
     verified: false,
@@ -62,6 +78,7 @@ const MOCK_LISTINGS = [
     title: 'Habitacion economica bien ubicada',
     price: 250,
     district: 'Chilca',
+    city: 'Huancayo',
     images: [],
     amenities: ['wifi', 'kitchen'],
     verified: false,
@@ -74,6 +91,7 @@ const MOCK_LISTINGS = [
     title: 'Suite con vista a la ciudad',
     price: 650,
     district: 'El Tambo',
+    city: 'Huancayo',
     images: [],
     amenities: ['wifi', 'furnished', 'bathroom', 'balcony', 'security'],
     verified: true,
@@ -100,10 +118,13 @@ export default function DiscoverScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showFilter, setShowFilter] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [selectedCity, setSelectedCity] = useState('Huancayo');
   const [selectedDistrict, setSelectedDistrict] = useState('Todos');
   const [selectedPriceRange, setSelectedPriceRange] = useState(0);
   const [showMatch, setShowMatch] = useState(false);
   const [listings, setListings] = useState(MOCK_LISTINGS);
+  const [savedListings, setSavedListings] = useState({});
 
   const position = useRef(new Animated.ValueXY()).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -207,6 +228,63 @@ export default function DiscoverScreen({ navigation }) {
     }).start(() => onSwipeComplete('right'));
   }, [currentIndex, listings.length, onSwipeComplete]);
 
+  const handleSaveListing = useCallback(async (listing) => {
+    const isSaved = savedListings[listing.id];
+    setSavedListings((prev) => ({
+      ...prev,
+      [listing.id]: !isSaved,
+    }));
+    try {
+      if (isSaved) {
+        await favoritesAPI.remove(listing.id);
+      } else {
+        await favoritesAPI.add(listing.id);
+      }
+    } catch (err) {
+      // Revert on error
+      setSavedListings((prev) => ({
+        ...prev,
+        [listing.id]: isSaved,
+      }));
+      console.warn('Error toggling favorite:', err);
+    }
+  }, [savedListings]);
+
+  const handleLongPress = useCallback((listing) => {
+    Alert.alert(
+      listing.title,
+      'Que deseas hacer?',
+      [
+        {
+          text: 'Reportar publicacion',
+          onPress: () =>
+            navigation.navigate('Report', {
+              targetType: 'listing',
+              targetId: listing.id,
+              targetName: listing.title,
+            }),
+        },
+        {
+          text: 'Reportar usuario',
+          onPress: () =>
+            navigation.navigate('Report', {
+              targetType: 'user',
+              targetId: listing.ownerId || listing.id,
+              targetName: listing.ownerName,
+            }),
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  }, [navigation]);
+
+  const handleCitySelect = useCallback((city) => {
+    setSelectedCity(city);
+    setShowCityPicker(false);
+    setCurrentIndex(0);
+    // In production, this would trigger a feed refresh filtered by city
+  }, []);
+
   const getCardStyle = useCallback(() => {
     const rotate = position.x.interpolate({
       inputRange: [-SCREEN_WIDTH * 1.5, 0, SCREEN_WIDTH * 1.5],
@@ -283,7 +361,29 @@ export default function DiscoverScreen({ navigation }) {
               >
                 <Text style={styles.nopeOverlayText}>PASO</Text>
               </Animated.View>
-              <ListingSwipeCard listing={listing} />
+
+              <TouchableOpacity
+                activeOpacity={1}
+                onLongPress={() => handleLongPress(listing)}
+                delayLongPress={600}
+                onPress={() =>
+                  navigation.navigate('ListingDetail', { listing })
+                }
+              >
+                <ListingSwipeCard listing={listing} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.saveCardBtn}
+                onPress={() => handleSaveListing(listing)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={savedListings[listing.id] ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={savedListings[listing.id] ? '#E8442A' : '#FFFFFF'}
+                />
+              </TouchableOpacity>
             </Animated.View>
           );
         }
@@ -314,10 +414,17 @@ export default function DiscoverScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>CuartoYa</Text>
-          <View style={styles.locationBadge}>
+          <TouchableOpacity
+            style={styles.locationBadge}
+            onPress={() => setShowCityPicker(true)}
+            activeOpacity={0.7}
+          >
             <Ionicons name="location" size={12} color="#E8442A" />
-            <Text style={styles.locationText}>Huancayo</Text>
-          </View>
+            <Text style={styles.locationText}>
+              {selectedCity === 'Todas' ? 'Todas las ciudades' : selectedCity}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color="#E8442A" />
+          </TouchableOpacity>
         </View>
         <TouchableOpacity
           style={styles.filterButton}
@@ -370,6 +477,57 @@ export default function DiscoverScreen({ navigation }) {
         </View>
       )}
 
+      {/* City Picker Modal */}
+      <Modal
+        visible={showCityPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCityPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.filterSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.filterHeader}>
+              <Text style={styles.filterTitle}>Seleccionar ciudad</Text>
+              <TouchableOpacity onPress={() => setShowCityPicker(false)}>
+                <Ionicons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {CITIES.map((city) => (
+                <TouchableOpacity
+                  key={city}
+                  style={[
+                    styles.cityOption,
+                    selectedCity === city && styles.cityOptionActive,
+                  ]}
+                  onPress={() => handleCitySelect(city)}
+                >
+                  <View style={styles.cityOptionLeft}>
+                    <Ionicons
+                      name="location"
+                      size={18}
+                      color={selectedCity === city ? '#E8442A' : '#9CA3AF'}
+                    />
+                    <Text
+                      style={[
+                        styles.cityOptionText,
+                        selectedCity === city && styles.cityOptionTextActive,
+                      ]}
+                    >
+                      {city === 'Todas' ? 'Todas las ciudades' : city}
+                    </Text>
+                  </View>
+                  {selectedCity === city && (
+                    <Ionicons name="checkmark-circle" size={22} color="#E8442A" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Filter Modal */}
       <Modal
         visible={showFilter}
         animationType="slide"
@@ -477,15 +635,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
+    gap: 4,
   },
   locationText: {
     fontSize: 12,
     color: '#E8442A',
     fontWeight: '600',
-    marginLeft: 3,
   },
   filterButton: {
     width: 42,
@@ -510,6 +668,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: SCREEN_WIDTH - 32,
     alignSelf: 'center',
+  },
+  saveCardBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
   },
   likeOverlay: {
     position: 'absolute',
@@ -738,6 +908,32 @@ const styles = StyleSheet.create({
   applyFilterText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  cityOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  cityOptionActive: {
+    backgroundColor: '#FEF2F2',
+  },
+  cityOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cityOptionText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  cityOptionTextActive: {
+    color: '#E8442A',
     fontWeight: '700',
   },
 });

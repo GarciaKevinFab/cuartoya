@@ -105,4 +105,25 @@ export const subscriptionsAPI = {
     api.get('/subscriptions/current'),
 };
 
+export const verificationAPI = {
+  verifyDni: (dni) =>
+    api.post('/verification/dni', { dni }),
+  getStatus: () =>
+    api.get('/verification/status'),
+};
+
+export const favoritesAPI = {
+  add: (listingId) =>
+    api.post(`/favorites/${listingId}`),
+  remove: (listingId) =>
+    api.delete(`/favorites/${listingId}`),
+  list: () =>
+    api.get('/favorites'),
+};
+
+export const reportsAPI = {
+  create: (data) =>
+    api.post('/reports', data),
+};
+
 export default api;

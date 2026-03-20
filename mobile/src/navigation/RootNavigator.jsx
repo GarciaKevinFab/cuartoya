@@ -7,6 +7,9 @@ import ListingDetailScreen from '../screens/ListingDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import MyListingsScreen from '../screens/MyListingsScreen';
 import PremiumScreen from '../screens/PremiumScreen';
+import VerificationScreen from '../screens/VerificationScreen';
+import FavoritesScreen from '../screens/FavoritesScreen';
+import ReportScreen from '../screens/ReportScreen';
 import useAuthStore from '../store/authStore';
 
 const Stack = createStackNavigator();
@@ -76,6 +79,37 @@ export default function RootNavigator() {
               headerTitle: 'Planes Premium',
               headerTintColor: '#E8442A',
               headerStyle: { backgroundColor: '#FFFFFF' },
+            }}
+          />
+          <Stack.Screen
+            name="Verification"
+            component={VerificationScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Verificacion',
+              headerTintColor: '#E8442A',
+              headerStyle: { backgroundColor: '#FFFFFF' },
+            }}
+          />
+          <Stack.Screen
+            name="Favorites"
+            component={FavoritesScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Mis Favoritos',
+              headerTintColor: '#E8442A',
+              headerStyle: { backgroundColor: '#FFFFFF' },
+            }}
+          />
+          <Stack.Screen
+            name="Report"
+            component={ReportScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Reportar',
+              headerTintColor: '#E8442A',
+              headerStyle: { backgroundColor: '#FFFFFF' },
+              presentation: 'modal',
             }}
           />
         </>

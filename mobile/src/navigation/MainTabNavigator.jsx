@@ -5,8 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import NewListingScreen from '../screens/NewListingScreen';
+import MyListingsScreen from '../screens/MyListingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import useMatchesStore from '../store/matchesStore';
+import useAuthStore from '../store/authStore';
 
 const Tab = createBottomTabNavigator();
 
@@ -20,6 +22,8 @@ function PublishTabIcon({ focused }) {
 
 export default function MainTabNavigator() {
   const unreadCount = useMatchesStore((state) => state.unreadCount);
+  const user = useAuthStore((state) => state.user);
+  const isLandlord = user?.role === 'landlord' || user?.role === 'agency';
 
   return (
     <Tab.Navigator
@@ -36,8 +40,9 @@ export default function MainTabNavigator() {
         component={DiscoverScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="search-outline" size={size} color={color} />
           ),
+          tabBarLabel: 'Explorar',
         }}
       />
       <Tab.Screen
@@ -45,8 +50,9 @@ export default function MainTabNavigator() {
         component={MatchesScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" size={size} color={color} />
+            <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
+          tabBarLabel: 'Mensajes',
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: styles.badge,
         }}
@@ -59,6 +65,18 @@ export default function MainTabNavigator() {
           tabBarLabel: () => null,
         }}
       />
+      {isLandlord && (
+        <Tab.Screen
+          name="MisCuartos"
+          component={MyListingsScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="home-outline" size={size} color={color} />
+            ),
+            tabBarLabel: 'Mis Cuartos',
+          }}
+        />
+      )}
       <Tab.Screen
         name="Perfil"
         component={ProfileScreen}

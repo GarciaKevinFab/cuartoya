@@ -56,4 +56,10 @@ async def get_current_user(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado o inactivo")
 
+    if user.is_banned:
+        detail = "Tu cuenta ha sido suspendida"
+        if user.ban_reason:
+            detail += f": {user.ban_reason}"
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+
     return user

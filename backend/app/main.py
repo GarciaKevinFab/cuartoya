@@ -45,7 +45,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — en desarrollo permitir todos los origenes
+# Middleware order: LAST added = FIRST to execute (outermost)
+# So we add: GZip first (innermost), then RateLimit, then CORS last (outermost)
+# This ensures CORS handles preflight OPTIONS before anything else
+
+app.add_middleware(GZipMiddleware)
+app.add_middleware(RateLimitMiddleware, max_calls=120, period=60)
+
+# CORS — must be outermost (added last) to handle preflight requests
 cors_origins = settings.cors_origins_list
 if settings.APP_ENV == "development":
     cors_origins = ["*"]
@@ -57,10 +64,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Rate limiting middleware (global: 120 requests per minute per IP)
-app.add_middleware(RateLimitMiddleware, max_calls=120, period=60)
-app.add_middleware(GZipMiddleware)
 
 # Static files for local uploads
 uploads_path = Path("uploads")

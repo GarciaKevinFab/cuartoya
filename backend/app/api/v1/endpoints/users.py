@@ -1,3 +1,6 @@
+from typing import List, Optional
+from pydantic import BaseModel
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -7,10 +10,20 @@ from app.models.user import User
 from app.models.listing import Listing
 from app.models.swipe import Swipe, SwipeAction
 from app.models.match import Match
+from app.models.block import Block
 from app.schemas.user import UserResponse, UserUpdate, UserPublic, UserStats, PushTokenRequest
 from app.services.cloudinary_service import upload_image
 
 router = APIRouter()
+
+
+class BlockedUserResponse(BaseModel):
+    id: str
+    blocked_id: str
+    blocked_name: str
+    blocked_photo: Optional[str] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -43,6 +56,78 @@ async def upload_profile_photo(
     await db.commit()
     await db.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+@router.get("/me/blocked", response_model=List[BlockedUserResponse])
+async def get_blocked_users(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Listar usuarios bloqueados."""
+    result = await db.execute(
+        select(Block).where(Block.blocker_id == current_user.id).order_by(Block.created_at.desc())
+    )
+    blocks = result.scalars().all()
+
+    response = []
+    for block in blocks:
+        result = await db.execute(select(User).where(User.id == block.blocked_id))
+        blocked_user = result.scalar_one_or_none()
+        if blocked_user:
+            response.append(BlockedUserResponse(
+                id=block.id,
+                blocked_id=blocked_user.id,
+                blocked_name=blocked_user.full_name,
+                blocked_photo=blocked_user.profile_photo,
+                created_at=block.created_at,
+            ))
+    return response
+
+
+@router.post("/{user_id}/block")
+async def block_user(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bloquear a un usuario. Sus publicaciones no apareceran en tu feed."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes bloquearte a ti mismo")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    target_user = result.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    result = await db.execute(
+        select(Block).where(Block.blocker_id == current_user.id, Block.blocked_id == user_id)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Este usuario ya esta bloqueado")
+
+    block = Block(blocker_id=current_user.id, blocked_id=user_id)
+    db.add(block)
+    await db.commit()
+    return {"message": f"Usuario {target_user.full_name} bloqueado"}
+
+
+@router.delete("/{user_id}/block")
+async def unblock_user(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Desbloquear a un usuario."""
+    result = await db.execute(
+        select(Block).where(Block.blocker_id == current_user.id, Block.blocked_id == user_id)
+    )
+    block = result.scalar_one_or_none()
+    if not block:
+        raise HTTPException(status_code=404, detail="Este usuario no esta bloqueado")
+
+    await db.delete(block)
+    await db.commit()
+    return {"message": "Usuario desbloqueado"}
 
 
 @router.get("/{user_id}", response_model=UserPublic)

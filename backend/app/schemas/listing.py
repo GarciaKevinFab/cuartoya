@@ -8,6 +8,7 @@ class ListingBase(BaseModel):
     description: str
     price: float
     room_type: str = "single"
+    city: str = "huancayo"
     district: str = "el_tambo"
     address: Optional[str] = None
     latitude: Optional[float] = None
@@ -49,6 +50,7 @@ class ListingUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     room_type: Optional[str] = None
+    city: Optional[str] = None
     district: Optional[str] = None
     address: Optional[str] = None
     latitude: Optional[float] = None
@@ -75,6 +77,7 @@ class ListingResponse(BaseModel):
     description: str
     price: float
     room_type: str
+    city: str = "huancayo"
     district: str
     address: Optional[str] = None
     latitude: Optional[float] = None

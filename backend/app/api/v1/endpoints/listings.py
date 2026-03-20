@@ -15,6 +15,7 @@ router = APIRouter()
 
 @router.get("", response_model=ListingFeed)
 async def get_feed(
+    city: Optional[str] = None,
     district: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
@@ -31,6 +32,7 @@ async def get_feed(
     listings, next_cursor, has_more = await get_discover_feed(
         db, current_user.id, district, min_price, max_price, room_type,
         has_wifi, has_parking, is_furnished, has_bathroom_private, cursor, limit,
+        city=city,
     )
     return ListingFeed(
         listings=[ListingResponse.model_validate(l) for l in listings],

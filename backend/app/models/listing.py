@@ -14,12 +14,48 @@ class RoomType(str, enum.Enum):
     apartment = "apartment"
 
 
+class City(str, enum.Enum):
+    huancayo = "huancayo"
+    tarma = "tarma"
+    la_oroya = "la_oroya"
+    junin = "junin"
+    jauja = "jauja"
+    concepcion = "concepcion"
+    chupaca = "chupaca"
+
+
 class District(str, enum.Enum):
+    # Huancayo
     el_tambo = "el_tambo"
     chilca = "chilca"
     cercado = "cercado"
     huancan = "huancan"
     pilcomayo = "pilcomayo"
+    # Tarma
+    tarma_centro = "tarma_centro"
+    acobamba_tarma = "acobamba_tarma"
+    palca = "palca"
+    # La Oroya
+    la_oroya_centro = "la_oroya_centro"
+    santa_rosa_sacco = "santa_rosa_sacco"
+    yauli = "yauli"
+    # Junin
+    junin_centro = "junin_centro"
+    ondores = "ondores"
+    carhuamayo = "carhuamayo"
+    # Jauja
+    jauja_centro = "jauja_centro"
+    sausa = "sausa"
+    yauyos_jauja = "yauyos_jauja"
+    # Concepcion
+    concepcion_centro = "concepcion_centro"
+    aco = "aco"
+    orcotuna = "orcotuna"
+    # Chupaca
+    chupaca_centro = "chupaca_centro"
+    ahuac = "ahuac"
+    huachac = "huachac"
+    # Otros
     otros = "otros"
 
 
@@ -28,6 +64,7 @@ class Listing(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     owner_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    city: Mapped[str] = mapped_column(SAEnum(City), default=City.huancayo, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)

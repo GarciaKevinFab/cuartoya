@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, not_
 from app.models.listing import Listing
 from app.models.swipe import Swipe
+from app.models.block import Block
 
 
 async def get_discover_feed(
@@ -18,20 +19,31 @@ async def get_discover_feed(
     has_bathroom_private: Optional[bool] = None,
     cursor: Optional[str] = None,
     limit: int = 10,
+    city: Optional[str] = None,
 ) -> tuple[List[Listing], Optional[str], bool]:
-    """Get discover feed with filters and cursor pagination."""
+    """Get discover feed with filters, cursor pagination, and blocked user exclusion."""
 
     # Subquery: listings already swiped by user
     swiped_ids = select(Swipe.listing_id).where(Swipe.swiper_id == user_id).scalar_subquery()
+
+    # Subquery: users blocked by the current user
+    blocked_user_ids = select(Block.blocked_id).where(Block.blocker_id == user_id).scalar_subquery()
+
+    # Subquery: users who blocked the current user
+    blocking_user_ids = select(Block.blocker_id).where(Block.blocked_id == user_id).scalar_subquery()
 
     # Base query
     query = select(Listing).where(
         Listing.is_active == True,
         Listing.owner_id != user_id,
         Listing.id.not_in(swiped_ids),
+        Listing.owner_id.not_in(blocked_user_ids),
+        Listing.owner_id.not_in(blocking_user_ids),
     )
 
     # Apply filters
+    if city:
+        query = query.where(Listing.city == city)
     if district:
         query = query.where(Listing.district == district)
     if min_price is not None:
